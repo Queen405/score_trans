@@ -258,8 +258,8 @@ def test_history_render_pages_use_current_publication_engine_version(tmp_path) -
         render_output_stale=True,
     )
 
-    assert batch.engine_version == "publication-20"
-    assert batch.pages[0].engine_version == "publication-20"
+    assert batch.engine_version == "publication-22"
+    assert batch.pages[0].engine_version == "publication-22"
     assert batch.render_output_stale is True
 
 

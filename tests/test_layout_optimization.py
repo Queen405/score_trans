@@ -14,6 +14,7 @@ from score_trans.services.render.engraving.renderer import (
     _boundary_penalties,
     _break_systems,
     _optimal_system_ends,
+    _page_system_gap,
     _paginate,
     _pagination_bottom,
 )
@@ -176,3 +177,85 @@ def test_fixed_system_gives_extreme_measure_a_full_row_instead_of_failing() -> N
     assert [len(system.cells) for system in systems] == [1, 1]
     assert systems[0].widths == pytest.approx([500])
     assert systems[1].widths == pytest.approx([125])
+
+
+def test_nonlast_page_distributes_slack_evenly_between_systems() -> None:
+    style = PublicationStyle(page_height=650)
+    systems = [_System([], [], 110) for _ in range(3)]
+
+    gap = _page_system_gap(
+        systems,
+        style,
+        page_index=0,
+        page_count=2,
+        show_title=True,
+        fit_content_height=False,
+    )
+
+    used = style.margin_top + style.title_block_height + 3 * 110
+    used += 2 * style.system_gap
+    expected = style.system_gap + min(
+        max(0.0, _pagination_bottom(style) - used) / 2,
+        2 * style.system_gap,
+    )
+    assert gap == pytest.approx(expected)
+    assert gap > style.system_gap
+
+
+def test_page_gap_has_stretch_limit() -> None:
+    style = PublicationStyle(page_height=2000)
+    systems = [_System([], [], 100) for _ in range(2)]
+
+    gap = _page_system_gap(
+        systems,
+        style,
+        page_index=0,
+        page_count=2,
+        show_title=True,
+        fit_content_height=False,
+    )
+
+    assert gap == pytest.approx(3 * style.system_gap)
+
+
+def test_last_single_and_content_fit_pages_keep_natural_gap() -> None:
+    style = PublicationStyle(page_height=650)
+    systems = [_System([], [], 100) for _ in range(2)]
+    for kwargs in (
+        dict(page_index=1, page_count=2, show_title=True, fit_content_height=False),
+        dict(page_index=0, page_count=1, show_title=True, fit_content_height=True),
+    ):
+        assert _page_system_gap(systems, style, **kwargs) == style.system_gap
+    assert (
+        _page_system_gap(
+            systems[:1],
+            style,
+            page_index=0,
+            page_count=2,
+            show_title=True,
+            fit_content_height=False,
+        )
+        == style.system_gap
+    )
+
+
+def test_page_gap_uses_continuation_header_without_title() -> None:
+    style = PublicationStyle(page_height=650)
+    systems = [_System([], [], 100) for _ in range(2)]
+
+    gap = _page_system_gap(
+        systems,
+        style,
+        page_index=0,
+        page_count=2,
+        show_title=False,
+        fit_content_height=False,
+    )
+
+    used = style.margin_top + style.continuation_header_height + 200
+    used += style.system_gap
+    expected = style.system_gap + min(
+        max(0.0, _pagination_bottom(style) - used),
+        2 * style.system_gap,
+    )
+    assert gap == pytest.approx(expected)

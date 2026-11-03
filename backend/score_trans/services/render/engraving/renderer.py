@@ -270,6 +270,14 @@ class PublicationRenderer:
                 show_page_number=show_page_number,
             )
             note_start = next_note_index
+            page_gap = _page_system_gap(
+                page_systems,
+                style,
+                page_index=page_index,
+                page_count=len(pages or [[]]),
+                show_title=show_title,
+                fit_content_height=fit_content_height,
+            )
             y = style.margin_top + (
                 style.title_block_height
                 if page_index == 0 and show_title
@@ -318,7 +326,7 @@ class PublicationRenderer:
                     playback_tick_offset=playback_tick_offset,
                 )
                 _append_ranges(page_ranges, system.cells)
-                y += system.height + style.system_gap
+                y += system.height + page_gap
             note_end = next_note_index - 1 if next_note_index > note_start else None
             scene.note_index_start = note_start if note_end is not None else None
             scene.note_index_end = note_end
@@ -2161,6 +2169,33 @@ def _pagination_bottom(style: PublicationStyle) -> float:
     )
 
 
+def _page_system_gap(
+    page_systems: list[_System],
+    style: PublicationStyle,
+    *,
+    page_index: int,
+    page_count: int,
+    show_title: bool,
+    fit_content_height: bool,
+) -> float:
+    """Return one justified gap for this page without changing system content."""
+    base_gap = style.system_gap
+    is_last_page = page_index == page_count - 1
+    if fit_content_height or is_last_page or len(page_systems) <= 1:
+        return base_gap
+    header_height = (
+        style.title_block_height
+        if page_index == 0 and show_title
+        else style.continuation_header_height
+    )
+    used = style.margin_top + header_height
+    used += sum(system.height for system in page_systems)
+    used += (len(page_systems) - 1) * base_gap
+    slack = max(0.0, _pagination_bottom(style) - used)
+    extra_gap = min(slack / (len(page_systems) - 1), 2 * base_gap)
+    return base_gap + extra_gap
+
+
 def _paginate(
     systems: list[_System], style: PublicationStyle, *, show_title: bool = True
 ) -> list[list[_System]]:
@@ -2867,28 +2902,13 @@ def _draw_pitch(
         )
     )
     if pitch.octave:
-        direction = -1 if pitch.octave > 0 else 1
         row = next(row for row in pitch_layouts(event, style) if row.pitch is pitch)
-        if direction < 0:
-            first_center = (
-                y
-                + (row.note_box.top - row.y)
-                - style.event_clearance
-                - style.octave_dot_radius
-            )
-        else:
-            first_center = (
-                y
-                + (row.note_box.bottom - row.y)
-                + style.event_clearance
-                + style.octave_dot_radius
-            )
-        for index in range(abs(pitch.octave)):
+        for box in row.octave_boxes:
             group.children.append(
                 _circle(
                     "octave-dot",
                     x,
-                    first_center + direction * index * style.rhythm_dot_step,
+                    y + (box.top + box.bottom) / 2 - row.y,
                     style.octave_dot_radius,
                     fill=True,
                 )
@@ -3296,11 +3316,7 @@ def _rhythm_line_base(anchor: _Anchor, style: PublicationStyle | None = None) ->
 def _rhythm_line_offset(event: Event, style: PublicationStyle) -> float:
     rows = pitch_layouts(event, style)
     note_bottom = max((row.note_box.bottom for row in rows), default=0.0)
-    attachment_bottom = note_bottom
-    for row in rows:
-        for box in row.octave_boxes:
-            attachment_bottom = max(attachment_bottom, box.bottom)
-    return max(note_bottom + 12.5, attachment_bottom + 8.0)
+    return note_bottom + 12.5
 
 
 def _is_tuplet(event: Event) -> bool:

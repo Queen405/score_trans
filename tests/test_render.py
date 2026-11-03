@@ -129,7 +129,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-20"
+    assert root.attrib["data-engine-version"] == "publication-22"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -1240,7 +1240,7 @@ def test_overfull_dense_measure_keeps_all_event_ink_inside_content() -> None:
     )
 
 
-def test_low_octave_dot_stays_above_duration_lines() -> None:
+def test_low_octave_dot_stays_below_duration_lines() -> None:
     event = Event(
         kind="note",
         duration=Fraction(1, 4),
@@ -1253,9 +1253,8 @@ def test_low_octave_dot_stays_above_duration_lines() -> None:
     ]
 
     assert lines
-    assert all(
-        float(line.attrib["y1"]) >= float(dot.attrib["cy"]) + 8 for line in lines
-    )
+    lowest_line = max(float(line.attrib["y1"]) for line in lines)
+    assert float(dot.attrib["cy"]) >= lowest_line + 8
 
 
 def test_rhythm_runs_share_lowest_safe_baseline_in_a_measure() -> None:
@@ -3697,3 +3696,44 @@ def test_fixed_mode_extreme_content_still_renders_with_diagnostics() -> None:
 
     assert len(pages) == 1
     assert pages[0].scene.geometry_issues
+
+
+def test_chord_low_octave_dots_stay_below_shared_duration_lines() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1, 4),
+        pitches=[
+            JianpuPitch(2, octave=-1),
+            JianpuPitch(5),
+            JianpuPitch(7, octave=-2),
+        ],
+    )
+    root = _root(render_score_svg(JianpuScore(measures=[Measure("1", events=[event])])))
+
+    dots = [node for node in root.iter() if node.attrib.get("class") == "octave-dot"]
+    lines = [
+        node for node in root.iter() if "duration-line" in node.attrib.get("class", "")
+    ]
+    lowest_line = max(float(node.attrib["y1"]) for node in lines)
+    dot_centers = sorted(float(node.attrib["cy"]) for node in dots)
+    assert len(dots) == 3
+    assert all(center >= lowest_line + 8 for center in dot_centers)
+    assert len(set(dot_centers)) == len(dot_centers)
+
+
+def test_low_octave_dot_without_duration_lines_keeps_original_position() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[JianpuPitch(6, octave=-1)],
+    )
+    root = _root(render_score_svg(JianpuScore(measures=[Measure("1", events=[event])])))
+
+    dot = next(node for node in root.iter() if node.attrib.get("class") == "octave-dot")
+    note = next(
+        node
+        for node in root.iter()
+        if node.attrib.get("class") == "note" and node.attrib.get("aria-label") == "6"
+    )
+    note_box = _text_box(note)
+    assert float(dot.attrib["cy"]) > note_box[3]

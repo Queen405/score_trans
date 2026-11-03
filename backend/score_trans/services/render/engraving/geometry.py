@@ -108,12 +108,20 @@ def pitch_layouts(event: Event, style: PublicationStyle) -> tuple[PitchLayout, .
     ]
 
     def build(row_offsets: list[float]) -> list[PitchLayout]:
-        layouts: list[PitchLayout] = []
-        for pitch, row_y in zip(pitches, row_offsets):
-            value = str(max(0, min(7, pitch.degree)))
-            note_box = _translated(
-                _centered_text_box(value, style.note_size), 0.0, row_y
+        note_boxes = [
+            _translated(
+                _centered_text_box(str(max(0, min(7, pitch.degree))), style.note_size),
+                0.0,
+                row_y,
             )
+            for pitch, row_y in zip(pitches, row_offsets, strict=True)
+        ]
+        note_bottom = max(box.bottom for box in note_boxes)
+        layouts: list[PitchLayout] = []
+        for pitch, row_y, note_box in zip(
+            pitches, row_offsets, note_boxes, strict=True
+        ):
+            value = str(max(0, min(7, pitch.degree)))
             accidental_box = None
             accidental = _accidental_text(pitch)
             if accidental:
@@ -138,10 +146,8 @@ def pitch_layouts(event: Event, style: PublicationStyle) -> tuple[PitchLayout, .
                         note_box.top - style.event_clearance - style.octave_dot_radius
                     )
                 else:
-                    first_center = (
-                        note_box.bottom
-                        + style.event_clearance
-                        + style.octave_dot_radius
+                    first_center = _low_octave_first_center(
+                        event, row_y, note_box.bottom, note_bottom, style
                     )
                 for dot_index in range(abs(pitch.octave)):
                     cy = first_center + direction * dot_index * style.rhythm_dot_step
@@ -151,6 +157,32 @@ def pitch_layouts(event: Event, style: PublicationStyle) -> tuple[PitchLayout, .
                     )
             layouts.append(
                 PitchLayout(pitch, row_y, note_box, accidental_box, tuple(octave_boxes))
+            )
+        low_octave_rows = sorted(
+            enumerate(layouts),
+            key=lambda item: item[1].y,
+        )
+        previous_bottom = -math.inf
+        for layout_index, layout in low_octave_rows:
+            if layout.pitch.octave >= 0:
+                continue
+            boxes = list(layout.octave_boxes)
+            if not boxes:
+                continue
+            first_center = (boxes[0].top + boxes[0].bottom) / 2
+            shift = max(0.0, previous_bottom + style.rhythm_dot_step - first_center)
+            if shift:
+                boxes = [
+                    InkBox(box.left, box.top + shift, box.right, box.bottom + shift)
+                    for box in boxes
+                ]
+            previous_bottom = max(box.bottom for box in boxes)
+            layouts[layout_index] = PitchLayout(
+                layout.pitch,
+                layout.y,
+                layout.note_box,
+                layout.accidental_box,
+                tuple(boxes),
             )
         return layouts
 
@@ -176,7 +208,39 @@ def pitch_layouts(event: Event, style: PublicationStyle) -> tuple[PitchLayout, .
 
     center = (offsets[0] + offsets[-1]) / 2
     offsets = [offset - center for offset in offsets]
-    return tuple(build(offsets))
+    layouts = list(build(offsets))
+    if not _rhythm_line_count(event):
+        for index in range(1, len(layouts)):
+            previous = layouts[index - 1]
+            previous_bottom = previous.note_box.bottom
+            for box in (previous.accidental_box, *previous.octave_boxes):
+                if box is not None:
+                    previous_bottom = max(previous_bottom, box.bottom)
+            current = layouts[index]
+            current_top = current.note_box.top
+            if current.accidental_box is not None:
+                current_top = min(current_top, current.accidental_box.top)
+            for box in current.octave_boxes:
+                current_top = min(current_top, box.top)
+            required = previous_bottom + style.event_clearance - current_top
+            if required <= 0:
+                continue
+            for shift_index in range(index, len(layouts)):
+                shifted = layouts[shift_index]
+                layouts[shift_index] = PitchLayout(
+                    shifted.pitch,
+                    shifted.y + required,
+                    _translated(shifted.note_box, 0.0, required),
+                    (
+                        _translated(shifted.accidental_box, 0.0, required)
+                        if shifted.accidental_box is not None
+                        else None
+                    ),
+                    tuple(
+                        _translated(box, 0.0, required) for box in shifted.octave_boxes
+                    ),
+                )
+    return tuple(layouts)
 
 
 _ACCIDENTAL_RENDER_GLYPH = {"n": "♮"}
@@ -342,6 +406,38 @@ def _rhythm_line_count(event: Event) -> int:
     return count
 
 
+def _rhythm_bottom_from_note_bottom(
+    event: Event, note_bottom: float, style: PublicationStyle
+) -> float:
+    rhythm_lines = _rhythm_line_count(event)
+    if not rhythm_lines:
+        return note_bottom
+    return (
+        note_bottom
+        + 12.5
+        + (rhythm_lines - 1) * style.rhythm_line_level_step
+        + style.stroke_width
+    )
+
+
+def _low_octave_first_center(
+    event: Event,
+    row_y: float,
+    row_note_bottom: float,
+    note_bottom: float,
+    style: PublicationStyle,
+) -> float:
+    """Place low-octave dots below their note or the shared rhythm lines."""
+    base = (
+        _rhythm_bottom_from_note_bottom(event, note_bottom, style)
+        if _rhythm_line_count(event)
+        else row_note_bottom
+    )
+    if not _rhythm_line_count(event):
+        return base + style.event_clearance + style.octave_dot_radius
+    return base - row_y + style.event_clearance + style.octave_dot_radius
+
+
 def _duration_extension_start(event: Event, style: PublicationStyle) -> float:
     if not event.dotted:
         return 17.0
@@ -362,12 +458,9 @@ def _event_attachment_bottom(event: Event, style: PublicationStyle) -> float:
             attachment_bottom = max(attachment_bottom, box.bottom)
     rhythm_lines = _rhythm_line_count(event)
     if rhythm_lines:
-        rhythm_base = max(note_bottom + 12.5, attachment_bottom + 8.0)
         attachment_bottom = max(
             attachment_bottom,
-            rhythm_base
-            + (rhythm_lines - 1) * style.rhythm_line_level_step
-            + style.stroke_width,
+            _rhythm_bottom_from_note_bottom(event, note_bottom, style),
         )
     return attachment_bottom
 
@@ -471,12 +564,7 @@ def measure_event_layout(
             attachment_bottom = max(attachment_bottom, dot_box.bottom)
     rhythm_lines = _rhythm_line_count(event)
     if rhythm_lines:
-        rhythm_base = max(chord_bottom + 12.5, attachment_bottom + 8.0)
-        rhythm_bottom = (
-            rhythm_base
-            + (rhythm_lines - 1) * style.rhythm_line_level_step
-            + style.stroke_width
-        )
+        rhythm_bottom = _rhythm_bottom_from_note_bottom(event, chord_bottom, style)
         # A rhythm line is a span shared across a run of events, not the ink of
         # a single event. Reserving its side extent as per-event horizontal width
         # would double-count the span and inflate the minimum gap between two
