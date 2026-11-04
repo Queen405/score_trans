@@ -874,7 +874,7 @@ onUnmounted(() => {
 }
 
 .scan-img.dimmed {
-  filter: grayscale(0.5) brightness(0.95) blur(1px);
+  filter: grayscale(0.5) brightness(0.95);
   opacity: 0.75;
 }
 

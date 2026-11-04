@@ -76,7 +76,8 @@ test('log state is bounded and LogPanel uses its stable entry ids', () => {
 test('marker candidate maps preserve the native overlay and use contour hit paths', () => {
   assert.match(originalPreviewSource, /\[1, 2, 3\]\.includes\(parsed\.version\)/)
   assert.match(originalPreviewSource, /:class="\{ dimmed: showOverlay && canShowOverlay \}"/)
-  assert.match(originalPreviewSource, /\.scan-img\.dimmed\s*\{[\s\S]*?grayscale\(0\.5\) brightness\(0\.95\) blur\(1px\)/)
+  assert.match(originalPreviewSource, /\.scan-img\.dimmed\s*\{[\s\S]*?grayscale\(0\.5\) brightness\(0\.95\)/)
+  assert.doesNotMatch(originalPreviewSource, /\.scan-img\.dimmed\s*\{[^}]*blur/)
   assert.doesNotMatch(originalPreviewSource, /<rect[\s\S]*?entity-box/)
   assert.match(originalPreviewSource, /:d="element\.hit_path"/)
   assert.match(convertSource, /@select-source="handleOriginalSourceClick"/)
@@ -548,7 +549,8 @@ test('marker edit mode keeps the original overlay and clicks semantic hit paths 
   assert.doesNotMatch(originalPreviewSource, /<rect[\s\S]*?class="entity-box"/)
   assert.doesNotMatch(originalPreviewSource, /\.entity-box\s*\{/)
   assert.match(originalPreviewSource, /:class="\{ dimmed: showOverlay && canShowOverlay \}"/)
-  assert.match(originalPreviewSource, /\.scan-img\.dimmed\s*\{[\s\S]*?grayscale\(0\.5\) brightness\(0\.95\) blur\(1px\)/)
+  assert.match(originalPreviewSource, /\.scan-img\.dimmed\s*\{[\s\S]*?grayscale\(0\.5\) brightness\(0\.95\)/)
+  assert.doesNotMatch(originalPreviewSource, /\.scan-img\.dimmed\s*\{[^}]*blur/)
 })
 
 test('marker inspector has specific names for dynamics and accidentals', async () => {
