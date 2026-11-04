@@ -197,6 +197,34 @@ def test_recognize_with_audiveris_caps_large_png_before_running(
         assert img.width * img.height <= 950_000
 
 
+def test_preventive_downscale_does_not_trigger_a_second_upscale(
+    monkeypatch, tmp_path: Path
+) -> None:
+    source = _write_png(tmp_path / "src" / "large.png", 2000, 1000)
+    output_dir = tmp_path / "omr"
+    min_resolution_called = False
+
+    def fail_if_upscaled(*args, **kwargs) -> None:
+        nonlocal min_resolution_called
+        min_resolution_called = True
+        raise AssertionError("downscaled input must not be upscaled again")
+
+    monkeypatch.setattr(external_tools, "ensure_min_resolution", fail_if_upscaled)
+
+    effective, preprocessed = external_tools._apply_preventive_upscale(
+        source,
+        output_dir,
+        ToolConfig(audiveris_max_pixel_count="1000000"),
+    )
+
+    assert effective == preprocessed
+    assert preprocessed is not None
+    assert not min_resolution_called
+    with Image.open(effective) as img:
+        assert img.width * img.height <= 950_000
+        assert max(img.width, img.height) < 2500
+
+
 def test_recognize_with_audiveris_skips_upscale_when_disabled(
     monkeypatch, tmp_path: Path
 ) -> None:

@@ -207,8 +207,9 @@ def _apply_preventive_upscale(
         except (OSError, ValueError):
             downscaled = None
         if downscaled is not None:
-            effective_input = downscaled
-            preprocessed_path = downscaled
+            # 缩小已经损失了部分细节；即使长边低于目标值，也不能紧接着
+            # 再放大一次，否则只会进行第二次重采样而不会增加有效信息。
+            return downscaled, downscaled
 
     if not getattr(config, "audiveris_auto_upscale", True):
         return effective_input, preprocessed_path
