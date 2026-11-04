@@ -1,6 +1,7 @@
 import type { ApiResult } from '../api/client'
 import type {
   HistoryBatch,
+  HistoryBatchRenderStateResponse,
   HistoryBatchRenderStateUpdateRequest,
   HistoryBatchSaveRequest,
   HistoryCreateRequest,
@@ -16,7 +17,7 @@ export interface WorkspacePersistenceClient {
   updateRenderState(
     id: number,
     request: HistoryBatchRenderStateUpdateRequest,
-  ): Promise<ApiResult<HistoryBatch>>
+  ): Promise<ApiResult<HistoryBatchRenderStateResponse>>
 }
 
 export interface WorkspacePersistenceStore {
@@ -238,7 +239,7 @@ export function createWorkspacePersistence(
     store: WorkspacePersistenceStore,
     batchId: string,
     state: RenderStateSnapshot,
-  ): Promise<HistoryBatch | null> {
+  ): Promise<HistoryBatchRenderStateResponse | null> {
     const pages = store.pages.filter((page) => page.batchId === batchId)
     const historyBatchId = historyBatchIdForPages(pages)
     if (!historyBatchId) return null

@@ -507,6 +507,7 @@ class HistoryDao:
         render_page_ocr_texts: list[HistoryRenderPageOcrText],
         render_output_stale: bool,
         render_layout_key: str,
+        load_batch: bool = True,
     ) -> HistoryBatch | None:
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
@@ -570,6 +571,7 @@ class HistoryDao:
         *,
         render_output_stale: bool,
         render_layout_key: str,
+        load_batch: bool = True,
     ) -> HistoryBatch | None:
         with self._connect() as conn:
             exists = conn.execute(
@@ -594,6 +596,17 @@ class HistoryDao:
                 ),
             )
             conn.commit()
+            if not load_batch:
+                return HistoryBatch(
+                    id=batch_id,
+                    render_page_file_ids=list(render_page_file_ids),
+                    engine_version=(
+                        PUBLICATION_ENGINE_VERSION if render_page_file_ids else ""
+                    ),
+                    render_layout_key=render_layout_key if render_page_file_ids else "",
+                    render_page_ocr_texts=list(render_page_ocr_texts),
+                    render_output_stale=render_output_stale,
+                )
             row = conn.execute(
                 "SELECT * FROM history_batch WHERE id = ?", (batch_id,)
             ).fetchone()
@@ -1198,7 +1211,9 @@ def _load_string_dict(payload: str) -> dict[str, str]:
         return {}
     if not isinstance(raw, dict):
         return {}
-    return {str(key): str(value) for key, value in raw.items() if isinstance(value, str)}
+    return {
+        str(key): str(value) for key, value in raw.items() if isinstance(value, str)
+    }
 
 
 def _dump_render_page_ocr_texts(items: list[HistoryRenderPageOcrText]) -> str:

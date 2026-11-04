@@ -13,6 +13,7 @@ from ...models.history.schemas import (
     BatchRenderPageOcrTextsUpdate,
     BatchRenderPagesUpdate,
     BatchResponse,
+    BatchRenderStateResponse,
     BatchRenderStateUpdate,
     BatchSaveRequest,
     BatchSavePage,
@@ -259,7 +260,7 @@ class HistoryActions:
 
     def update_batch_render_state(
         self, batch_id: int, req: BatchRenderStateUpdate
-    ) -> BatchResponse:
+    ) -> BatchRenderStateResponse:
         batch = self.service.update_batch_render_state(
             batch_id,
             req.render_page_file_ids,
@@ -272,10 +273,21 @@ class HistoryActions:
             ],
             render_output_stale=req.render_output_stale,
             render_layout_key=req.render_layout_key,
+            load_batch=False,
         )
         if not batch:
             raise FileNotFoundError("Batch not found")
-        return _batch_to_response(batch)
+        return BatchRenderStateResponse(
+            id=batch.id,
+            render_page_file_ids=batch.render_page_file_ids,
+            engine_version=batch.engine_version,
+            render_layout_key=batch.render_layout_key,
+            render_page_ocr_texts=[
+                RenderPageOcrText(page_index=item.page_index, ocr_text=item.ocr_text)
+                for item in batch.render_page_ocr_texts
+            ],
+            render_output_stale=batch.render_output_stale,
+        )
 
     def reorder_pages(self, batch_id: int, req: BatchPageOrderRequest) -> BatchResponse:
         page_orders = [(item.page_id, item.jianpu_text) for item in req.pages]

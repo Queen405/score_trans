@@ -12,6 +12,7 @@ from ...models.history.schemas import (
     BatchRenderPageOcrTextsUpdate,
     BatchRenderPagesUpdate,
     BatchResponse,
+    BatchRenderStateResponse,
     BatchRenderStateUpdate,
     BatchSaveRequest,
     DeleteAllResponse,
@@ -105,7 +106,7 @@ def save_batch(
     return actions.save_batch(batch_id, req)
 
 
-@router.patch("/{batch_id}/render-state", response_model=BatchResponse)
+@router.patch("/{batch_id}/render-state", response_model=BatchRenderStateResponse)
 def update_batch_render_state(
     batch_id: int,
     req: BatchRenderStateUpdate,

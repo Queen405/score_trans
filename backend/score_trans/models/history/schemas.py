@@ -168,6 +168,15 @@ class BatchResponse(BaseModel):
     pages: list[PageResponse]
 
 
+class BatchRenderStateResponse(BaseModel):
+    id: int
+    render_page_file_ids: list[str] = Field(default_factory=list)
+    engine_version: str = PUBLICATION_ENGINE_VERSION
+    render_layout_key: str = ""
+    render_page_ocr_texts: list[RenderPageOcrText] = Field(default_factory=list)
+    render_output_stale: bool = False
+
+
 class BatchListItem(BaseModel):
     id: int
     created_at: str

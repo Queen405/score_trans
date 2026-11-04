@@ -180,6 +180,7 @@ def test_update_render_state_writes_files_ocr_layout_and_stale_together(
     ]
     assert updated.render_output_stale is False
     assert updated.render_layout_key == "layout-1"
+    assert "pages" not in updated.model_dump()
 
 
 def test_fresh_render_state_requires_files_and_unique_ocr_indexes() -> None:

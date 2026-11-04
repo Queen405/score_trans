@@ -6,6 +6,7 @@ import type {
   HistoryBatchPageOrderRequest,
   HistoryBatchRenderPageOcrTextsUpdateRequest,
   HistoryBatchRenderPagesUpdateRequest,
+  HistoryBatchRenderStateResponse,
   HistoryBatchRenderStateUpdateRequest,
   HistoryBatchSaveRequest,
   HistoryCreateRequest,
@@ -84,7 +85,7 @@ export const historyApi = {
     })
   },
 
-  updateRenderState(id: number, req: HistoryBatchRenderStateUpdateRequest): Promise<ApiResult<HistoryBatch>> {
+  updateRenderState(id: number, req: HistoryBatchRenderStateUpdateRequest): Promise<ApiResult<HistoryBatchRenderStateResponse>> {
     return apiFetch(`/history/${id}/render-state`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

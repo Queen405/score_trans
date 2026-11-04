@@ -1311,6 +1311,30 @@ export type components = {
             /** Svg File Id */
             svg_file_id: string;
         };
+        /** BatchRenderStateResponse */
+        BatchRenderStateResponse: {
+            /**
+             * Engine Version
+             * @default publication-26
+             */
+            engine_version?: string;
+            /** Id */
+            id: number;
+            /**
+             * Render Layout Key
+             * @default
+             */
+            render_layout_key?: string;
+            /**
+             * Render Output Stale
+             * @default false
+             */
+            render_output_stale?: boolean;
+            /** Render Page File Ids */
+            render_page_file_ids?: string[];
+            /** Render Page Ocr Texts */
+            render_page_ocr_texts?: components["schemas"]["RenderPageOcrText"][];
+        };
         /** BatchRenderStateUpdate */
         BatchRenderStateUpdate: {
             /** Render Layout Key */
@@ -5030,7 +5054,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BatchResponse"];
+                    "application/json": components["schemas"]["BatchRenderStateResponse"];
                 };
             };
             /** @description Validation Error */

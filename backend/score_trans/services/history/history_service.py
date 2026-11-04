@@ -99,6 +99,7 @@ class HistoryService:
         render_page_ocr_texts: list[HistoryRenderPageOcrText],
         render_output_stale: bool,
         render_layout_key: str,
+        load_batch: bool = True,
     ) -> HistoryBatch | None:
         return self.dao.save_batch(
             batch_id,
@@ -119,6 +120,7 @@ class HistoryService:
         *,
         render_output_stale: bool,
         render_layout_key: str,
+        load_batch: bool = True,
     ) -> HistoryBatch | None:
         return self.dao.update_batch_render_state(
             batch_id,
@@ -126,6 +128,7 @@ class HistoryService:
             render_page_ocr_texts,
             render_output_stale=render_output_stale,
             render_layout_key=render_layout_key,
+            load_batch=load_batch,
         )
 
     def update_page(

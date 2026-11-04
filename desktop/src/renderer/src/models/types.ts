@@ -31,6 +31,7 @@ export type {
   HistoryBatchPageOrderRequest,
   HistoryBatchRenderPageOcrTextsUpdateRequest,
   HistoryBatchRenderPagesUpdateRequest,
+  HistoryBatchRenderStateResponse,
   HistoryBatchRenderStateUpdateRequest,
   HistoryBatchSaveRequest,
   HistoryCreateRequest,
