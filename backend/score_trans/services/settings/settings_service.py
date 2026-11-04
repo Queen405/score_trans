@@ -4,6 +4,7 @@ from pathlib import Path
 
 from score_trans.config.settings import (
     AUDIVERIS_AUTO_UPSCALE,
+    AUDIVERIS_BINARIZATION_THRESHOLD,
     AUDIVERIS_CONSTANTS,
     AUDIVERIS_EXTRA_ARGS,
     AUDIVERIS_FORCE,
@@ -119,6 +120,9 @@ class SettingsService:
             audiveris_max_heap=self.dao.get("audiveris_max_heap") or AUDIVERIS_MAX_HEAP,
             audiveris_max_pixel_count=self.dao.get("audiveris_max_pixel_count")
             or AUDIVERIS_MAX_PIXEL_COUNT,
+            audiveris_binarization_threshold=self.dao.get_int(
+                "audiveris_binarization_threshold", AUDIVERIS_BINARIZATION_THRESHOLD
+            ),
             audiveris_auto_upscale=self.dao.get_bool(
                 "audiveris_auto_upscale", AUDIVERIS_AUTO_UPSCALE
             ),

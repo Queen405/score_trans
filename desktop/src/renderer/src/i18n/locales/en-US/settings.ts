@@ -70,6 +70,7 @@ const settings: typeof zhSettings = {
     javaHomePlaceholder: 'JDK 25 directory',
     maxHeap: 'Max heap',
     pixelLimit: 'Pixel limit',
+    binarizationThreshold: 'Binarization (0=Audiveris auto)',
     autoUpscale: 'Auto upscale images',
     minImageEdge: 'Minimum long edge (px)',
   },

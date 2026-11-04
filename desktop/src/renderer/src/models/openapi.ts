@@ -3441,6 +3441,11 @@ export type components = {
              */
             audiveris_auto_upscale?: boolean;
             /**
+             * Audiveris Binarization Threshold
+             * @default 0
+             */
+            audiveris_binarization_threshold?: number;
+            /**
              * Audiveris Max Heap
              * @default 3g
              */
@@ -3659,6 +3664,8 @@ export type components = {
             assistant_provider?: string | null;
             /** Audiveris Auto Upscale */
             audiveris_auto_upscale?: boolean | null;
+            /** Audiveris Binarization Threshold */
+            audiveris_binarization_threshold?: number | null;
             /** Audiveris Max Heap */
             audiveris_max_heap?: ("1g" | "2g" | "3g" | "4g") | null;
             /** Audiveris Max Pixel Count */

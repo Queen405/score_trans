@@ -58,6 +58,7 @@ class SettingsResponse(BaseModel):
     java_home: str
     audiveris_max_heap: str = "3g"
     audiveris_max_pixel_count: str = "20000000"
+    audiveris_binarization_threshold: int = 0
     audiveris_auto_upscale: bool = True
     audiveris_min_image_edge: int = 2500
     data_dir: str
@@ -119,6 +120,7 @@ class SettingsUpdateRequest(BaseModel):
     java_home: str | None = None
     audiveris_max_heap: Literal["1g", "2g", "3g", "4g"] | None = None
     audiveris_max_pixel_count: str | None = None
+    audiveris_binarization_threshold: int | None = Field(default=None, ge=0, le=254)
     audiveris_auto_upscale: bool | None = None
     audiveris_min_image_edge: int | None = Field(default=None, ge=0, le=10000)
     output_dir: str | None = None

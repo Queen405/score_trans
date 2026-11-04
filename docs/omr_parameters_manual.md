@@ -53,6 +53,7 @@ OMR 相关参数全部集中在 `backend/score_trans/config/.env` 中，分为�
 | `SCORE_TRANS_AUDIVERIS_AUTO_UPSCALE` | `1` | 布尔 | 自动放大低分辨率光栅图（目标长边见下） |
 | `SCORE_TRANS_AUDIVERIS_MIN_IMAGE_EDGE` | `2500` | 整数 | 自动放大的目标长边像素数 |
 | `SCORE_TRANS_AUDIVERIS_MAX_PIXEL_COUNT` | `20000000` | 整数 | 大图保护上限，超过则先缩放 |
+| `SCORE_TRANS_AUDIVERIS_BINARIZATION_THRESHOLD` | `0` | 0–254 | 0=Audiveris 自动；1–254=手动固定二值化阈值 |
 | `SCORE_TRANS_AUDIVERIS_MAX_HEAP` | `3g` | 字符串 | Audiveris JVM 堆上限，仅 `1g`/`2g`/`3g`/`4g` |
 
 ### 2.3 PDF 渲染参数（OMR 输入阶段）

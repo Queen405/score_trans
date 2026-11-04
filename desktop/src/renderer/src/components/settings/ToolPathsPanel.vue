@@ -56,6 +56,18 @@
         </settings-form-row>
 
         <settings-form-row
+          :label="t('settings.tools.binarizationThreshold')"
+        >
+          <n-input-number
+            v-model:value="settings.draft.audiverisBinarizationThreshold"
+            :min="0"
+            :max="254"
+            :step="1"
+            size="small"
+          />
+        </settings-form-row>
+
+        <settings-form-row
           :label="t('settings.tools.autoUpscale')"
         >
           <n-switch

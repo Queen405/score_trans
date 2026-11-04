@@ -52,6 +52,7 @@ $env:SCORE_TRANS_AUDIVERIS="D:\CODE\MyProjects\score_trans\third_party\audiveris
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
+| `SCORE_TRANS_AUDIVERIS_BINARIZATION_THRESHOLD` | OMR 固定二值化阈值；0 表示由 Audiveris 自动处理。 | `0` |
 | `SCORE_TRANS_AUDIVERIS_AUTO_UPSCALE` | 是否在调用 Audiveris 前对低分辨率光栅图自动放大。 | `1`（True） |
 | `SCORE_TRANS_AUDIVERIS_MIN_IMAGE_EDGE` | 自动放大的目标长边像素数。 | `2500` |
 | `SCORE_TRANS_AUDIVERIS_MAX_PIXEL_COUNT` | 大图保护上限，超过则缩放后再送 Audiveris。 | `20000000` |

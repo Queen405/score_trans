@@ -777,6 +777,25 @@ def test_settings_rejects_unsupported_target_key(tmp_path: Path) -> None:
     assert response.status_code == 422
 
 
+def test_settings_persist_audiveris_binarization_threshold(tmp_path: Path) -> None:
+    app = create_app()
+    service = SettingsService(SettingsDao(tmp_path / "settings.db"))
+    app.dependency_overrides[get_settings_actions] = lambda: SettingsActions(service)
+    client = TestClient(app)
+
+    assert client.get("/settings").json()["audiveris_binarization_threshold"] == 0
+    updated = client.put("/settings", json={"audiveris_binarization_threshold": 210})
+    assert updated.status_code == 200
+    assert updated.json()["audiveris_binarization_threshold"] == 210
+    assert service.load().audiveris_binarization_threshold == 210
+    assert (
+        client.put(
+            "/settings", json={"audiveris_binarization_threshold": 255}
+        ).status_code
+        == 422
+    )
+
+
 def test_jianpu_text_svg_request_accepts_page_image_for_ocr_overlay() -> None:
     schema = create_app().openapi()["components"]["schemas"][
         "RenderJianpuTextSvgRequest"

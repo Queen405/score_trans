@@ -28,6 +28,7 @@ export interface SettingsDraft {
   javaHome: string
   audiverisMaxHeap: string
   audiverisMaxPixelCount: string
+  audiverisBinarizationThreshold: number
   audiverisAutoUpscale: boolean
   audiverisMinImageEdge: number
   dataDir: string
@@ -123,6 +124,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const javaHome = ref('')
   const audiverisMaxHeap = ref('3g')
   const audiverisMaxPixelCount = ref('20000000')
+  const audiverisBinarizationThreshold = ref(0)
   const audiverisAutoUpscale = ref(true)
   const audiverisMinImageEdge = ref(2500)
   const dataDir = ref('')
@@ -203,6 +205,7 @@ export const useSettingsStore = defineStore('settings', () => {
     javaHome: '',
     audiverisMaxHeap: '3g',
     audiverisMaxPixelCount: '20000000',
+    audiverisBinarizationThreshold: 0,
     audiverisAutoUpscale: true,
     audiverisMinImageEdge: 2500,
     dataDir: '',
@@ -341,6 +344,7 @@ export const useSettingsStore = defineStore('settings', () => {
       javaHome: javaHome.value,
       audiverisMaxHeap: audiverisMaxHeap.value,
       audiverisMaxPixelCount: audiverisMaxPixelCount.value,
+      audiverisBinarizationThreshold: audiverisBinarizationThreshold.value,
       audiverisAutoUpscale: audiverisAutoUpscale.value,
       audiverisMinImageEdge: audiverisMinImageEdge.value,
       dataDir: dataDir.value,
@@ -431,6 +435,7 @@ export const useSettingsStore = defineStore('settings', () => {
           java_home: next.javaHome,
           audiveris_max_heap: next.audiverisMaxHeap as '1g' | '2g' | '3g' | '4g',
           audiveris_max_pixel_count: next.audiverisMaxPixelCount,
+          audiveris_binarization_threshold: next.audiverisBinarizationThreshold,
           audiveris_auto_upscale: next.audiverisAutoUpscale,
           audiveris_min_image_edge: next.audiverisMinImageEdge,
           output_dir: next.outputDir,
@@ -589,6 +594,7 @@ export const useSettingsStore = defineStore('settings', () => {
     javaHome.value = data.java_home
     audiverisMaxHeap.value = data.audiveris_max_heap ?? '3g'
     audiverisMaxPixelCount.value = data.audiveris_max_pixel_count ?? '20000000'
+    audiverisBinarizationThreshold.value = data.audiveris_binarization_threshold ?? 0
     audiverisAutoUpscale.value = data.audiveris_auto_upscale ?? true
     audiverisMinImageEdge.value = data.audiveris_min_image_edge ?? 2500
     activeDataDir.value = data.data_dir ?? ''
@@ -705,6 +711,7 @@ export const useSettingsStore = defineStore('settings', () => {
     draft.javaHome = next.javaHome
     draft.audiverisMaxHeap = next.audiverisMaxHeap
     draft.audiverisMaxPixelCount = next.audiverisMaxPixelCount
+    draft.audiverisBinarizationThreshold = next.audiverisBinarizationThreshold
     draft.audiverisAutoUpscale = next.audiverisAutoUpscale
     draft.audiverisMinImageEdge = next.audiverisMinImageEdge
     draft.dataDir = next.dataDir
@@ -758,6 +765,7 @@ export const useSettingsStore = defineStore('settings', () => {
     javaHome,
     audiverisMaxHeap,
     audiverisMaxPixelCount,
+    audiverisBinarizationThreshold,
     audiverisAutoUpscale,
     audiverisMinImageEdge,
     dataDir,

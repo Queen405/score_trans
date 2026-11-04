@@ -427,6 +427,15 @@ def test_settings_defaults_seeds_baseline_values() -> None:
     assert defaults["audiveris_min_image_edge"] == "2500"
 
 
+def test_audiveris_binarization_threshold_defaults_and_persists(tmp_path) -> None:
+    dao = SettingsDao(tmp_path / "settings.db", defaults=settings_defaults())
+    service = SettingsService(dao)
+
+    assert service.load().audiveris_binarization_threshold == 0
+    dao.set("audiveris_binarization_threshold", "210")
+    assert service.load().audiveris_binarization_threshold == 210
+
+
 def test_old_default_audiveris_pixel_budget_migrates_only_once(tmp_path) -> None:
     db_path = tmp_path / "settings.db"
     original = SettingsDao(

@@ -21,7 +21,7 @@ from .image_preprocess import (
     ensure_max_pixel_count,
     ensure_min_resolution,
     is_pdf,
-    normalize_highlighted_score,
+    binarize_score_for_omr,
     is_raster_image,
     max_pixel_budget,
     parse_low_interline,
@@ -199,7 +199,11 @@ def _apply_preventive_upscale(
     effective_input = input_file
     preprocessed_path: Path | None = None
     try:
-        normalized = normalize_highlighted_score(input_file, output_dir)
+        normalized = binarize_score_for_omr(
+            input_file,
+            output_dir,
+            threshold=config.audiveris_binarization_threshold,
+        )
     except (OSError, ValueError):
         normalized = None
     if normalized is not None:

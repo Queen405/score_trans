@@ -19,6 +19,7 @@ class ToolConfig:
     audiveris_extra_args: str = ""
     audiveris_max_heap: str = "3g"
     audiveris_max_pixel_count: str = "20000000"
+    audiveris_binarization_threshold: int = 0
     audiveris_auto_upscale: bool = True
     audiveris_min_image_edge: int = 2500
     enable_omr_ocr: bool = False

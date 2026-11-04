@@ -67,6 +67,7 @@ const settings = {
     javaHomePlaceholder: 'JDK 25 目录',
     maxHeap: '最大堆内存',
     pixelLimit: '像素上限',
+    binarizationThreshold: '二值化阈值（0=自动）',
     autoUpscale: '自动放大图片',
     minImageEdge: '最小长边像素',
   },

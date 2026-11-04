@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from PIL import Image
 from score_trans.models.common.errors import ExternalToolError
 from score_trans.models.settings.config import ToolConfig
@@ -15,7 +16,7 @@ from score_trans.services.recognize.image_preprocess import (
     ensure_min_resolution,
     is_pdf,
     is_raster_image,
-    normalize_highlighted_score,
+    binarize_score_for_omr,
     parse_low_interline,
     retry_scale_from_interline,
     upscale_by_factor,
@@ -136,7 +137,7 @@ def test_upscale_by_factor_grows_dimensions(tmp_path: Path) -> None:
         assert (img.width, img.height) == (2000, 1000)
 
 
-def test_highlighted_score_normalization_preserves_marks_and_removes_background(
+def test_manual_omr_binarization_preserves_marks_and_removes_background(
     tmp_path: Path,
 ) -> None:
     source = tmp_path / "src" / "highlighted.png"
@@ -149,7 +150,7 @@ def test_highlighted_score_normalization_preserves_marks_and_removes_background(
         image.putpixel((x, 25), (0, 0, 0))
     image.save(source)
 
-    result = normalize_highlighted_score(source, tmp_path / "out")
+    result = binarize_score_for_omr(source, tmp_path / "out", threshold=210)
 
     assert result is not None
     with Image.open(result) as normalized:
@@ -160,11 +161,44 @@ def test_highlighted_score_normalization_preserves_marks_and_removes_background(
         assert original.getpixel((30, 10)) == (255, 255, 180)
 
 
-def test_score_without_bright_highlight_is_not_globally_thresholded(
-    tmp_path: Path,
-) -> None:
+def test_default_omr_binarization_leaves_input_to_audiveris(tmp_path: Path) -> None:
     source = _write_png(tmp_path / "src" / "plain.png", 100, 100)
-    assert normalize_highlighted_score(source, tmp_path / "out") is None
+    assert binarize_score_for_omr(source, tmp_path / "out", threshold=0) is None
+
+
+def test_manual_omr_binarization_rejects_invalid_threshold(tmp_path: Path) -> None:
+    source = _write_png(tmp_path / "src" / "plain.png", 100, 100)
+    with pytest.raises(ValueError, match="二值化阈值"):
+        binarize_score_for_omr(source, tmp_path / "out", threshold=255)
+
+
+def test_recognize_with_audiveris_uses_manual_binarization(
+    monkeypatch, tmp_path: Path
+) -> None:
+    source = _write_png(tmp_path / "src" / "scan.png", 100, 100)
+    output_dir = tmp_path / "omr"
+    captured: list[str] = []
+
+    def fake_run(args, cwd=None, env=None) -> CommandResult:
+        captured.append(args[-1])
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "scan.musicxml").write_text("<score-partwise/>", encoding="utf-8")
+        return CommandResult(args=args, stdout="", stderr="")
+
+    monkeypatch.setattr(external_tools, "_run", fake_run)
+    recognize_with_audiveris(
+        source,
+        output_dir,
+        ToolConfig(
+            audiveris_path="audiveris",
+            audiveris_binarization_threshold=210,
+        ),
+    )
+
+    passed_path = Path(captured[0])
+    assert passed_path.name == "threshold_210_scan.png"
+    with Image.open(passed_path) as image:
+        assert image.mode == "1"
 
 
 def test_recognize_with_audiveris_preventive_upscale_passes_upscaled_path(
