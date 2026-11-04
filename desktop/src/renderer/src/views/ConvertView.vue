@@ -564,6 +564,7 @@ import { useLiveJianpuPreview } from '../composables/useLiveJianpuPreview'
 import { loadRenderPageIndex, saveRenderPageIndex } from '../composables/useViewPersistence'
 import { splitJianpuAndOcr } from '../utils/ocrText'
 import { isRenderAborted } from '../utils/renderAbort'
+import { fetchCachedFileText } from '../utils/fileTextCache'
 import {
   hasJianpuPageMarkers,
   ensureRecognizedPageTempoHeader,
@@ -1194,9 +1195,8 @@ watch(finalSvgFileIds, async (ids, _previous, onCleanup) => {
   renderPlaybackRanges.value = []
   const ranges = await Promise.all(ids.map(async (id) => {
     try {
-      const response = await fetchFileBlob(id, controller.signal)
-      if (response.error) return null
-      return readPlaybackRange(sanitizeSvg(await response.data.text()))
+      const text = await fetchCachedFileText(id, controller.signal)
+      return readPlaybackRange(sanitizeSvg(text))
     } catch { return null }
   }))
   if (!cancelled) renderPlaybackRanges.value = ranges

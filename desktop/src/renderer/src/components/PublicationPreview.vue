@@ -93,7 +93,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
 import type { CSSProperties } from 'vue'
-import { fetchFileBlob } from '../api/client'
+import { fetchCachedFileText } from '../utils/fileTextCache'
 import { t } from '../i18n'
 import { ImageOutline } from '@vicons/ionicons5'
 import { NIcon } from 'naive-ui'
@@ -391,9 +391,7 @@ async function loadSvg(url: string): Promise<void> {
   svgLoadController = controller
   const timeout = window.setTimeout(() => controller.abort(), 15000)
   try {
-    const result = await fetchFileBlob(url, controller.signal)
-    if (result.error) throw result.error
-    const text = await result.data.text()
+    const text = await fetchCachedFileText(url, controller.signal)
     if (generation !== svgLoadGeneration) return
     const safeSvg = sanitizeSvg(text)
 
