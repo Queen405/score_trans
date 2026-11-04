@@ -102,14 +102,21 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
       || batch.render_output_stale
       || isRenderLayoutStale(batch.render_layout_key ?? '', settings.jianpuLayoutKey)
     ) {
-      const outcome = await rebuildPublicationPages(batch)
-      if (outcome !== 'completed') return true
+      if (renderPageFileIds.length) {
+        void rebuildPublicationPages(batch, store.currentBatchId)
+      } else {
+        const outcome = await rebuildPublicationPages(batch, store.currentBatchId)
+        if (outcome !== 'completed') return true
+      }
     }
     message.success(t('runtime.history.restoredPages', { count: pages.length }))
     return true
   }
 
-  async function rebuildPublicationPages(batch: HistoryBatch): Promise<RebuildOutcome> {
+  async function rebuildPublicationPages(
+    batch: HistoryBatch,
+    workspaceId: string | null = store.currentBatchId,
+  ): Promise<RebuildOutcome> {
     const sourcePages = batch.pages.map((page) => {
       const split = splitJianpuAndOcr(page.jianpu_text || '')
       return {
@@ -145,6 +152,7 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
         ...settings.jianpuLayoutRequest,
       }))
       const ids = renderResponsePageIds(rendered.pages, rendered.svg_file_id)
+      if (store.currentBatchId !== workspaceId) return 'aborted'
       const layoutKey = rendered.pages[0]?.layout_key || settings.jianpuLayoutKey
       store.setBatchRenderPageFileIds(ids, undefined, layoutKey)
       store.setBatchRenderPageOcrTexts(

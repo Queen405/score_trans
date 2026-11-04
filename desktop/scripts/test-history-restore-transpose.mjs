@@ -79,7 +79,7 @@ function convertPreflight(bindings) {
   return new Function(...Object.keys(bindings), `${compiled}\nreturn persistUnsavedBeforeReplace;`)(...Object.values(bindings))
 }
 
-function setup(t, entrypoint = 'quick', { enabled = true, validationGate = null } = {}) {
+function setup(t, entrypoint = 'quick', { enabled = true, validationGate = null, renderGate = null, forceRender = false, pageCount = 1 } = {}) {
   const requests = []
   const saved = []
   const events = []
@@ -99,14 +99,28 @@ function setup(t, entrypoint = 'quick', { enabled = true, validationGate = null 
     },
     async get() {
       events.push('get')
+      const pages = Array.from({ length: pageCount }, (_, index) => ({
+        id: 200 + index,
+        input_file_name: `target-${index + 1}.png`,
+        input_file_id: '',
+        jianpu_text: `// @page ${index + 1}\n${before}`,
+      }))
       return {
         data: {
-          id: 20, pages: [{ id: 200, input_file_name: 'target.png', input_file_id: '', jianpu_text: before }],
-          jianpu_text: before, render_page_file_ids: ['rendered'], render_layout_key: 'layout',
+          id: 20,
+          pages,
+          jianpu_text: pages.map((page) => page.jianpu_text).join('\n'),
+          render_page_file_ids: Array.from({ length: pageCount }, (_, index) => `rendered-${index}`),
+          render_page_ocr_texts: [],
+          render_layout_key: 'layout',
+          render_output_stale: forceRender,
           engine_version: load('utils/jianpuLayout.ts').PUBLICATION_ENGINE_VERSION,
         },
         error: null,
       }
+    },
+    async updateRenderState(id, request) {
+      return { data: { id, ...request }, error: null }
     },
   }
   const mocks = {
@@ -126,9 +140,21 @@ function setup(t, entrypoint = 'quick', { enabled = true, validationGate = null 
         return result.data
       },
     },
-    [path.join(root, 'api/files.ts')]: { filesApi: { existsMany: async () => validationGate || ({ data: { rendered: true }, error: null }) } },
+    [path.join(root, 'api/files.ts')]: { filesApi: { existsMany: async (ids) => validationGate || ({ data: Object.fromEntries(ids.map((id) => [id, true])), error: null }) } },
     [path.join(root, 'utils/historyEvents.ts')]: { notifyHistoryUpdated() {} },
-    [path.join(root, 'composables/usePublicationRender.ts')]: { usePublicationRender: () => ({}) },
+    [path.join(root, 'composables/usePublicationRender.ts')]: { usePublicationRender: () => ({
+      batchA4: async () => renderGate || ({
+        data: {
+          pages: Array.from({ length: pageCount }, (_, index) => ({
+            page_index: index,
+            svg_file_id: `new-render-${index}`,
+            layout_key: 'layout',
+          })),
+          svg_file_id: '',
+        },
+        error: null,
+      }),
+    }) },
     [path.join(root, 'composables/useViewPersistence.ts')]: { loadEditorScroll: () => null, saveEditorScroll() {} },
   }
   const load = createLoader(mocks)
@@ -403,6 +429,58 @@ test('quick restore does not wait for file validation', async (t) => {
   assert.equal(settled, true)
   validation.resolve({ data: { rendered: true }, error: null })
   assert.equal(await restoring, true)
+})
+
+
+test('quick 20-page stale restore shows existing SVGs before background rebuild', async (t) => {
+  const rendering = deferred()
+  const ctx = setup(t, 'quick', {
+    forceRender: true,
+    pageCount: 20,
+    renderGate: rendering.promise,
+  })
+  let settled = false
+  const restoring = ctx.restore().finally(() => { settled = true })
+
+  await settle()
+  await settle()
+  assert.equal(settled, true)
+  assert.equal(ctx.store.currentBatchRenderPageFileIds.length, 20)
+  assert.equal(ctx.store.currentBatchRenderPageFileIds[0], 'rendered-0')
+  rendering.resolve({
+    data: {
+      pages: Array.from({ length: 20 }, (_, index) => ({
+        page_index: index,
+        svg_file_id: `new-render-${index}`,
+        layout_key: 'layout',
+      })),
+      svg_file_id: '',
+    },
+    error: null,
+  })
+  await settle()
+  await settle()
+  assert.equal(ctx.store.currentBatchRenderPageFileIds[0], 'new-render-0')
+  assert.equal(ctx.store.currentBatchRenderPageFileIds.length, 20)
+  assert.equal(await restoring, true)
+})
+
+test('background rebuild cannot overwrite a workspace replaced during rendering', async (t) => {
+  const rendering = deferred()
+  const ctx = setup(t, 'quick', { forceRender: true, renderGate: rendering.promise })
+  await ctx.restore()
+  ctx.store.loadBatch([{ inputFileName: 'other.png', jianpuText: '1 2 |' }], 0, ['other-render'], '1 2 |')
+
+  rendering.resolve({
+    data: {
+      pages: [{ page_index: 0, svg_file_id: 'new-render-0', layout_key: 'layout' }],
+      svg_file_id: '',
+    },
+    error: null,
+  })
+  await settle()
+  await settle()
+  assert.deepEqual(ctx.store.currentBatchRenderPageFileIds, ['other-render'])
 })
 
 
