@@ -79,7 +79,7 @@ function convertPreflight(bindings) {
   return new Function(...Object.keys(bindings), `${compiled}\nreturn persistUnsavedBeforeReplace;`)(...Object.values(bindings))
 }
 
-function setup(t, entrypoint = 'quick', { enabled = true } = {}) {
+function setup(t, entrypoint = 'quick', { enabled = true, validationGate = null } = {}) {
   const requests = []
   const saved = []
   const events = []
@@ -126,7 +126,7 @@ function setup(t, entrypoint = 'quick', { enabled = true } = {}) {
         return result.data
       },
     },
-    [path.join(root, 'api/files.ts')]: { filesApi: { existsMany: async () => ({ data: { rendered: true }, error: null }) } },
+    [path.join(root, 'api/files.ts')]: { filesApi: { existsMany: async () => validationGate || ({ data: { rendered: true }, error: null }) } },
     [path.join(root, 'utils/historyEvents.ts')]: { notifyHistoryUpdated() {} },
     [path.join(root, 'composables/usePublicationRender.ts')]: { usePublicationRender: () => ({}) },
     [path.join(root, 'composables/useViewPersistence.ts')]: { loadEditorScroll: () => null, saveEditorScroll() {} },
@@ -391,6 +391,20 @@ test('disabling auto-transpose invalidates an in-flight result without blocking 
   assert.equal(await ctx.restore(), true)
   assert.equal(ctx.saved[0].jianpu_text, edited)
 })
+
+test('quick restore does not wait for file validation', async (t) => {
+  const validation = deferred()
+  const ctx = setup(t, 'quick', { validationGate: validation.promise })
+  let settled = false
+  const restoring = ctx.restore().finally(() => { settled = true })
+
+  await settle()
+  await settle()
+  assert.equal(settled, true)
+  validation.resolve({ data: { rendered: true }, error: null })
+  assert.equal(await restoring, true)
+})
+
 
 // Exercise snapshot navigation with the real restore/confirmation functions and
 // editor watchers, so an external editor sync cannot silently re-dirty the store.

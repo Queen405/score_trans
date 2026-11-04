@@ -95,7 +95,7 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
       batch.render_layout_key ?? '',
     )
     await nextTick()
-    await validateRestoredBatchFiles(pages, renderPageFileIds)
+    void validateRestoredBatchFiles(pages, renderPageFileIds)
     if (
       !renderPageFileIds.length
       || batch.engine_version !== PUBLICATION_ENGINE_VERSION
