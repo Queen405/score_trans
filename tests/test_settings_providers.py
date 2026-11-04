@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -421,9 +422,33 @@ def test_settings_defaults_seeds_baseline_values() -> None:
     assert defaults["jianpu_lyric_note_gap_percent"] == "100"
     assert defaults["enable_omr_ocr"] == "0"
     assert defaults["audiveris_max_heap"] == "3g"
-    assert defaults["audiveris_max_pixel_count"] == "4500000"
+    assert defaults["audiveris_max_pixel_count"] == "20000000"
     assert defaults["audiveris_auto_upscale"] == "1"
     assert defaults["audiveris_min_image_edge"] == "2500"
+
+
+def test_old_default_audiveris_pixel_budget_migrates_only_once(tmp_path) -> None:
+    db_path = tmp_path / "settings.db"
+    original = SettingsDao(
+        db_path,
+        defaults={"audiveris_max_pixel_count": "4500000"},
+    )
+    original.set("audiveris_max_pixel_count", "4500000")
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("PRAGMA user_version = 0")
+
+    migrated = SettingsDao(
+        db_path,
+        defaults={"audiveris_max_pixel_count": "20000000"},
+    )
+    assert migrated.get("audiveris_max_pixel_count") == "20000000"
+
+    migrated.set("audiveris_max_pixel_count", "4500000")
+    reopened = SettingsDao(
+        db_path,
+        defaults={"audiveris_max_pixel_count": "20000000"},
+    )
+    assert reopened.get("audiveris_max_pixel_count") == "4500000"
 
 
 def test_settings_defaults_seeds_empty_api_keys() -> None:

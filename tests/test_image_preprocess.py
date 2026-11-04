@@ -15,6 +15,7 @@ from score_trans.services.recognize.image_preprocess import (
     ensure_min_resolution,
     is_pdf,
     is_raster_image,
+    normalize_highlighted_score,
     parse_low_interline,
     retry_scale_from_interline,
     upscale_by_factor,
@@ -133,6 +134,37 @@ def test_upscale_by_factor_grows_dimensions(tmp_path: Path) -> None:
     result = upscale_by_factor(png, out, factor=2.0, max_pixels=20_000_000)
     with Image.open(result) as img:
         assert (img.width, img.height) == (2000, 1000)
+
+
+def test_highlighted_score_normalization_preserves_marks_and_removes_background(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "src" / "highlighted.png"
+    source.parent.mkdir(parents=True)
+    image = Image.new("RGB", (100, 100), "white")
+    for y in range(50):
+        for x in range(100):
+            image.putpixel((x, y), (255, 255, 180))
+    for x in range(20, 80):
+        image.putpixel((x, 25), (0, 0, 0))
+    image.save(source)
+
+    result = normalize_highlighted_score(source, tmp_path / "out")
+
+    assert result is not None
+    with Image.open(result) as normalized:
+        assert normalized.mode == "1"
+        assert normalized.getpixel((30, 25)) == 0
+        assert normalized.getpixel((30, 10)) == 255
+    with Image.open(source) as original:
+        assert original.getpixel((30, 10)) == (255, 255, 180)
+
+
+def test_score_without_bright_highlight_is_not_globally_thresholded(
+    tmp_path: Path,
+) -> None:
+    source = _write_png(tmp_path / "src" / "plain.png", 100, 100)
+    assert normalize_highlighted_score(source, tmp_path / "out") is None
 
 
 def test_recognize_with_audiveris_preventive_upscale_passes_upscaled_path(

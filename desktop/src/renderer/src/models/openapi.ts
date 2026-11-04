@@ -3447,7 +3447,7 @@ export type components = {
             audiveris_max_heap?: string;
             /**
              * Audiveris Max Pixel Count
-             * @default 4500000
+             * @default 20000000
              */
             audiveris_max_pixel_count?: string;
             /**

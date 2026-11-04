@@ -67,6 +67,7 @@ class SettingsDao:
                     f"INSERT OR IGNORE INTO {TABLE_NAME} (key, value) VALUES (?, ?)",
                     (key, value),
                 )
+            self._migrate_audiveris_pixel_budget(conn)
             self._remove_obsolete_settings(conn)
             conn.commit()
 
@@ -80,6 +81,17 @@ class SettingsDao:
             self._remove_obsolete_settings(conn)
             conn.commit()
         self.defaults.update(defaults)
+
+    @staticmethod
+    def _migrate_audiveris_pixel_budget(conn: sqlite3.Connection) -> None:
+        version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+        if version >= 1:
+            return
+        conn.execute(
+            f"UPDATE {TABLE_NAME} SET value = '20000000' "
+            "WHERE key = 'audiveris_max_pixel_count' AND value = '4500000'"
+        )
+        conn.execute("PRAGMA user_version = 1")
 
     def _migrate_old_table(self, conn: sqlite3.Connection) -> None:
         try:

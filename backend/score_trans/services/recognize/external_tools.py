@@ -21,6 +21,7 @@ from .image_preprocess import (
     ensure_max_pixel_count,
     ensure_min_resolution,
     is_pdf,
+    normalize_highlighted_score,
     is_raster_image,
     max_pixel_budget,
     parse_low_interline,
@@ -197,10 +198,17 @@ def _apply_preventive_upscale(
     preprocess_max_pixels = max_pixel_budget(max_pixels)
     effective_input = input_file
     preprocessed_path: Path | None = None
+    try:
+        normalized = normalize_highlighted_score(input_file, output_dir)
+    except (OSError, ValueError):
+        normalized = None
+    if normalized is not None:
+        effective_input = normalized
+        preprocessed_path = normalized
     if max_pixels > 0:
         try:
             downscaled = ensure_max_pixel_count(
-                input_file,
+                effective_input,
                 output_dir,
                 max_pixels=max_pixels,
             )

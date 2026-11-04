@@ -312,7 +312,7 @@ class SettingsActions:
             java_home=config.java_home,
             audiveris_max_heap=all_settings.get("audiveris_max_heap", "3g"),
             audiveris_max_pixel_count=all_settings.get(
-                "audiveris_max_pixel_count", "4500000"
+                "audiveris_max_pixel_count", "20000000"
             ),
             audiveris_auto_upscale=self.service.get_bool(
                 "audiveris_auto_upscale", True

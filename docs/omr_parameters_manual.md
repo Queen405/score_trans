@@ -52,7 +52,7 @@ OMR 相关参数全部集中在 `backend/score_trans/config/.env` 中，分为�
 | `SCORE_TRANS_AUDIVERIS_EXTRA_ARGS` | 空 | 字符串 | 直接追加 Audiveris CLI 参数 |
 | `SCORE_TRANS_AUDIVERIS_AUTO_UPSCALE` | `1` | 布尔 | 自动放大低分辨率光栅图（目标长边见下） |
 | `SCORE_TRANS_AUDIVERIS_MIN_IMAGE_EDGE` | `2500` | 整数 | 自动放大的目标长边像素数 |
-| `SCORE_TRANS_AUDIVERIS_MAX_PIXEL_COUNT` | `4500000` | 整数 | 大图保护上限，超过则先缩放 |
+| `SCORE_TRANS_AUDIVERIS_MAX_PIXEL_COUNT` | `20000000` | 整数 | 大图保护上限，超过则先缩放 |
 | `SCORE_TRANS_AUDIVERIS_MAX_HEAP` | `3g` | 字符串 | Audiveris JVM 堆上限，仅 `1g`/`2g`/`3g`/`4g` |
 
 ### 2.3 PDF 渲染参数（OMR 输入阶段）
@@ -382,7 +382,7 @@ SCORE_TRANS_AUDIVERIS_SAVE=1
 
 **Q1：Score Trans 是否支持上传前自动对图片做预处理？**
 
-A：**支持**。`SCORE_TRANS_AUDIVERIS_AUTO_UPSCALE`（默认 `1`）会在调用 Audiveris 前对低分辨率光栅图自动放大到 `SCORE_TRANS_AUDIVERIS_MIN_IMAGE_EDGE`（默认 `2500`）像素长边；`SCORE_TRANS_AUDIVERIS_MAX_PIXEL_COUNT`（默认 `4500000`）则对超大图先缩放再做大图保护。PDF 输入按 `SCORE_TRANS_PDF_RENDER_DPI` 渲染为 PNG 后同样经过该链路。
+A：**支持**。`SCORE_TRANS_AUDIVERIS_AUTO_UPSCALE`（默认 `1`）会在调用 Audiveris 前对低分辨率光栅图自动放大到 `SCORE_TRANS_AUDIVERIS_MIN_IMAGE_EDGE`（默认 `2500`）像素长边；`SCORE_TRANS_AUDIVERIS_MAX_PIXEL_COUNT`（默认 `20000000`）则对超大图先缩放再做大图保护。PDF 输入按 `SCORE_TRANS_PDF_RENDER_DPI` 渲染为 PNG 后同样经过该链路。
 
 **Q2：识别总是报错找不到 Java？**
 

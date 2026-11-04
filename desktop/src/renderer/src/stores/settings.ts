@@ -122,7 +122,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const audiverisPath = ref('')
   const javaHome = ref('')
   const audiverisMaxHeap = ref('3g')
-  const audiverisMaxPixelCount = ref('4500000')
+  const audiverisMaxPixelCount = ref('20000000')
   const audiverisAutoUpscale = ref(true)
   const audiverisMinImageEdge = ref(2500)
   const dataDir = ref('')
@@ -202,7 +202,7 @@ export const useSettingsStore = defineStore('settings', () => {
     audiverisPath: '',
     javaHome: '',
     audiverisMaxHeap: '3g',
-    audiverisMaxPixelCount: '4500000',
+    audiverisMaxPixelCount: '20000000',
     audiverisAutoUpscale: true,
     audiverisMinImageEdge: 2500,
     dataDir: '',
@@ -588,7 +588,7 @@ export const useSettingsStore = defineStore('settings', () => {
     audiverisPath.value = data.audiveris_path
     javaHome.value = data.java_home
     audiverisMaxHeap.value = data.audiveris_max_heap ?? '3g'
-    audiverisMaxPixelCount.value = data.audiveris_max_pixel_count ?? '4500000'
+    audiverisMaxPixelCount.value = data.audiveris_max_pixel_count ?? '20000000'
     audiverisAutoUpscale.value = data.audiveris_auto_upscale ?? true
     audiverisMinImageEdge.value = data.audiveris_min_image_edge ?? 2500
     activeDataDir.value = data.data_dir ?? ''

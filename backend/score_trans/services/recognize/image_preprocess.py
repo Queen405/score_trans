@@ -180,3 +180,55 @@ def retry_scale_from_interline(
     if measured_interline <= 0:
         return 0.0
     return target_interline / measured_interline
+
+
+def normalize_highlighted_score(
+    input_path: str | Path,
+    output_dir: str | Path,
+    *,
+    threshold: int = 210,
+) -> Path | None:
+    """为带大面积明亮高亮的数字谱面生成 OMR 专用黑白图。
+
+    普通灰度图、黑白图和没有明显高亮的照片保持原样，避免全局阈值
+    破坏有阴影或纸张纹理的扫描件。原图只用于预览，不会被覆盖。
+    """
+    path = Path(input_path)
+    if not is_raster_image(path):
+        return None
+    from PIL import Image
+
+    with Image.open(path) as source:
+        source.load()
+        if source.mode in {"1", "L", "I", "F"}:
+            return None
+        sample = source.convert("RGB")
+        sample.thumbnail((512, 512))
+        if hasattr(sample, "get_flattened_data"):
+            pixels = list(sample.get_flattened_data())
+        else:
+            pixels = list(sample.getdata())
+        if not pixels:
+            return None
+        highlighted = sum(
+            1
+            for red, green, blue in pixels
+            if red > 180 and green > 170 and blue < 235 and min(red, green) - blue > 20
+        )
+        if highlighted / len(pixels) < 0.005:
+            return None
+
+        binary = source.convert("L").point(
+            lambda value: 0 if value < threshold else 255,
+            mode="1",
+        )
+        dest = Path(output_dir) / "_preprocess" / f"highlighted_{path.stem}.png"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        binary.save(dest, format="PNG", optimize=True)
+    logger.info(
+        "Normalized highlighted score %s -> %s (threshold=%d)",
+        path.name,
+        dest.name,
+        threshold,
+    )
+    return dest

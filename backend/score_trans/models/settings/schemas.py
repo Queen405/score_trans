@@ -57,7 +57,7 @@ class SettingsResponse(BaseModel):
     audiveris_path: str
     java_home: str
     audiveris_max_heap: str = "3g"
-    audiveris_max_pixel_count: str = "4500000"
+    audiveris_max_pixel_count: str = "20000000"
     audiveris_auto_upscale: bool = True
     audiveris_min_image_edge: int = 2500
     data_dir: str
