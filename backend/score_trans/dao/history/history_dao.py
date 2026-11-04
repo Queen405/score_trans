@@ -19,12 +19,13 @@ from ..storage import migrate_legacy_sqlite
 
 DEFAULT_DB_PATH = USER_WORK_DIR / "history.db"
 LEGACY_DB_PATH = LEGACY_WORK_DIR / "history.db"
-_SCHEMA_VERSION = 10
+_SCHEMA_VERSION = 11
 _MAX_SNAPSHOTS = 3
 _MIN_SQLITE_VERSION = (3, 35, 0)
 
 _PAGE_FILE_ID_COLUMNS = (
     "input_file_id",
+    "source_document_file_id",
     "musicxml_file_id",
     "svg_file_id",
     "overlay_svg_file_id",
@@ -128,6 +129,9 @@ class HistoryDao:
                 batch_id INTEGER NOT NULL REFERENCES history_batch(id) ON DELETE CASCADE,
                 input_file_name TEXT NOT NULL DEFAULT '',
                 input_file_id TEXT NOT NULL DEFAULT '',
+                source_document_file_id TEXT NOT NULL DEFAULT '',
+                source_document_name TEXT NOT NULL DEFAULT '',
+                source_page_index INTEGER NOT NULL DEFAULT -1,
                 task_id TEXT NOT NULL DEFAULT '',
                 musicxml_file_id TEXT NOT NULL DEFAULT '',
                 jianpu_text TEXT NOT NULL DEFAULT '',
@@ -312,20 +316,24 @@ class HistoryDao:
                 conn.execute(
                     """
                     INSERT INTO history_page
-                        (batch_id, input_file_name, input_file_id, task_id, musicxml_file_id,
-                         jianpu_text, ocr_text, svg_file_id, engine_version,
+                        (batch_id, input_file_name, input_file_id,
+                         source_document_file_id, source_document_name, source_page_index,
+                         task_id, musicxml_file_id, jianpu_text, ocr_text, svg_file_id, engine_version,
                          document_revision, overlay_svg_file_id,
                          text_attachments, overlay_file_id, source_map_file_id, text_hash,
                          text_anchors, text_anchor_baseline_text,
                          text_anchor_baseline_anchors, status, error_message,
                          completed_at, position, omr_file_id, original_musicxml, working_musicxml,
                          deleted_source_ids, recognition_candidate_selections)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         batch_id,
                         page.input_file_name,
                         page.input_file_id,
+                        page.source_document_file_id,
+                        page.source_document_name,
+                        page.source_page_index,
                         page.task_id,
                         page.musicxml_file_id,
                         page.jianpu_text,
@@ -885,6 +893,15 @@ class HistoryDao:
             conn.execute(
                 "ALTER TABLE history_page ADD COLUMN ocr_text TEXT NOT NULL DEFAULT ''"
             )
+        for column, definition in (
+            ("source_document_file_id", "TEXT NOT NULL DEFAULT ''"),
+            ("source_document_name", "TEXT NOT NULL DEFAULT ''"),
+            ("source_page_index", "INTEGER NOT NULL DEFAULT -1"),
+        ):
+            if column not in columns:
+                conn.execute(
+                    f"ALTER TABLE history_page ADD COLUMN {column} {definition}"
+                )
         if "task_id" not in columns:
             conn.execute(
                 "ALTER TABLE history_page ADD COLUMN task_id TEXT NOT NULL DEFAULT ''"
@@ -1122,6 +1139,19 @@ class HistoryDao:
             batch_id=row["batch_id"],
             input_file_name=row["input_file_name"],
             input_file_id=row["input_file_id"],
+            source_document_file_id=(
+                row["source_document_file_id"]
+                if "source_document_file_id" in row.keys()
+                else ""
+            ),
+            source_document_name=(
+                row["source_document_name"]
+                if "source_document_name" in row.keys()
+                else ""
+            ),
+            source_page_index=(
+                row["source_page_index"] if "source_page_index" in row.keys() else -1
+            ),
             task_id=row["task_id"] if "task_id" in row.keys() else "",
             musicxml_file_id=row["musicxml_file_id"],
             jianpu_text=row["jianpu_text"],

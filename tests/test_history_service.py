@@ -97,6 +97,27 @@ def test_list_batches_loads_pages_with_constant_query_count(tmp_path) -> None:
     assert len(select_statements) == 2
 
 
+def test_pdf_source_document_metadata_is_preserved(tmp_path) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    batch = service.create_batch(
+        [
+            HistoryPage(
+                input_file_name="score_page_002.png",
+                input_file_id="page-png",
+                source_document_file_id="source-pdf",
+                source_document_name="score.pdf",
+                source_page_index=1,
+            )
+        ]
+    )
+
+    restored = service.get_batch(batch.id).pages[0]
+    assert restored.input_file_id == "page-png"
+    assert restored.source_document_file_id == "source-pdf"
+    assert restored.source_document_name == "score.pdf"
+    assert restored.source_page_index == 1
+
+
 def test_update_page_replaces_jianpu_and_svg(tmp_path) -> None:
     service = HistoryService(tmp_path / "history.db")
     batch = service.create_batch(
@@ -248,7 +269,7 @@ def test_new_history_schema_omits_start_measure_number(tmp_path) -> None:
         version = conn.execute("PRAGMA user_version").fetchone()[0]
 
     assert "start_measure_number" not in columns
-    assert version == 10
+    assert version == 11
 
 
 def test_history_render_pages_use_current_publication_engine_version(tmp_path) -> None:
@@ -571,7 +592,7 @@ def test_v4_migration_backs_up_and_clears_history(tmp_path) -> None:
         page_columns = {
             row[1] for row in conn.execute("PRAGMA table_info(history_page)")
         }
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 10
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 11
         assert conn.execute("SELECT COUNT(*) FROM history_batch").fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM history_page").fetchone()[0] == 0
         assert "start_measure_number" not in page_columns
@@ -611,7 +632,7 @@ def test_v5_migration_adds_ocr_stale_without_clearing_history(tmp_path) -> None:
     assert loaded.render_page_file_ids == ["svg-kept"]
     assert loaded.render_output_stale is False
     with sqlite3.connect(db_path) as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 10
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 11
 
 
 def test_schema_migration_rolls_back_all_alter_steps(tmp_path, monkeypatch) -> None:
@@ -683,7 +704,7 @@ def test_legacy_history_rows_are_discarded_after_backup(tmp_path) -> None:
         }
         assert "history" not in tables
         assert "history_legacy_backup" not in tables
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 10
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 11
     with sqlite3.connect(db_path.with_suffix(".v0.bak")) as conn:
         assert conn.execute("SELECT COUNT(*) FROM history").fetchone()[0] == 2
 

@@ -2410,10 +2410,25 @@ export type components = {
                 [key: string]: string;
             };
             /**
+             * Source Document File Id
+             * @default
+             */
+            source_document_file_id?: string;
+            /**
+             * Source Document Name
+             * @default
+             */
+            source_document_name?: string;
+            /**
              * Source Map File Id
              * @default
              */
             source_map_file_id?: string;
+            /**
+             * Source Page Index
+             * @default -1
+             */
+            source_page_index?: number;
             /**
              * Status
              * @default completed
@@ -2508,10 +2523,25 @@ export type components = {
                 [key: string]: string;
             };
             /**
+             * Source Document File Id
+             * @default
+             */
+            source_document_file_id?: string;
+            /**
+             * Source Document Name
+             * @default
+             */
+            source_document_name?: string;
+            /**
              * Source Map File Id
              * @default
              */
             source_map_file_id?: string;
+            /**
+             * Source Page Index
+             * @default -1
+             */
+            source_page_index?: number;
             /** Status */
             status: string;
             /** Svg File Id */

@@ -11,6 +11,9 @@ from ..render.layout import PUBLICATION_ENGINE_VERSION
 class PageCreate(BaseModel):
     input_file_name: str = ""
     input_file_id: str = ""
+    source_document_file_id: str = ""
+    source_document_name: str = ""
+    source_page_index: int = -1
     task_id: str = ""
     musicxml_file_id: str = ""
     jianpu_text: str = ""
@@ -65,6 +68,9 @@ class PageResponse(BaseModel):
     batch_id: int
     input_file_name: str
     input_file_id: str
+    source_document_file_id: str = ""
+    source_document_name: str = ""
+    source_page_index: int = -1
     task_id: str
     musicxml_file_id: str
     jianpu_text: str

@@ -12,6 +12,9 @@ class HistoryPage:
     batch_id: int = 0
     input_file_name: str = ""
     input_file_id: str = ""
+    source_document_file_id: str = ""
+    source_document_name: str = ""
+    source_page_index: int = -1
     task_id: str = ""
     musicxml_file_id: str = ""
     jianpu_text: str = ""

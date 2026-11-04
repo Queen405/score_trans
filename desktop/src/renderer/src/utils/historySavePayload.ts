@@ -108,6 +108,9 @@ export function buildBatchPersistenceSnapshot(
       pages: input.pages.map((page, index) => ({
         input_file_name: page.inputFileName,
         input_file_id: page.inputFileId,
+        source_document_file_id: page.sourceDocumentFileId,
+        source_document_name: page.sourceDocumentName,
+        source_page_index: page.sourcePageIndex,
         task_id: page.taskId,
         musicxml_file_id: page.musicxmlFileId,
         jianpu_text: pageTextAt(input.jianpuText, input.pages, index),

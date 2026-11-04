@@ -95,3 +95,11 @@ export interface LogEntry {
   level: 'info' | 'warn' | 'error'
   message: string
 }
+
+export interface UploadedInputPage {
+  inputFileId: string
+  inputFileName: string
+  sourceDocumentFileId: string
+  sourceDocumentName: string
+  sourcePageIndex: number
+}

@@ -123,6 +123,9 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
         inputFileName: page.input_file_name,
         inputFileId: page.input_file_id,
         originalFileId: isPreviewableHistoryFile(page.input_file_name) ? page.input_file_id : '',
+        sourceDocumentFileId: page.source_document_file_id ?? '',
+        sourceDocumentName: page.source_document_name ?? '',
+        sourcePageIndex: page.source_page_index ?? -1,
         musicxmlFileId: page.musicxml_file_id,
         jianpuText: split.jianpuText,
         ocrText: page.ocr_text || split.ocrText,
@@ -192,6 +195,9 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
       inputFileId: page.input_file_id,
       originalFileName: previewable ? page.input_file_name : '',
       originalFileId: previewable ? page.input_file_id : '',
+      sourceDocumentFileId: page.source_document_file_id ?? '',
+      sourceDocumentName: page.source_document_name ?? '',
+      sourcePageIndex: page.source_page_index ?? -1,
       historyPageId: page.id,
       historyBatchId: batchId,
       musicxmlFileId: page.musicxml_file_id,
@@ -230,6 +236,7 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
     const fileIds = pages
       .flatMap((page) => [
         page.input_file_id,
+        page.source_document_file_id || '',
         page.musicxml_file_id,
         page.svg_file_id,
         page.omr_file_id || '',
@@ -249,6 +256,11 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
           patch.originalFileId = ''
           patch.originalFileName = ''
           warnings.push(`${page.input_file_name}: ${t('runtime.history.originalFileExpired')}`)
+        }
+        if (page.source_document_file_id && !exists[page.source_document_file_id]) {
+          patch.sourceDocumentFileId = ''
+          patch.sourceDocumentName = ''
+          patch.sourcePageIndex = -1
         }
         if (page.musicxml_file_id && !exists[page.musicxml_file_id]) {
           patch.musicxmlFileId = ''

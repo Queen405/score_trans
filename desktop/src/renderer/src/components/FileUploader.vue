@@ -55,9 +55,11 @@ import { useFileUpload } from '../composables/useFileUpload'
 import { useLogStore } from '../stores/log'
 import { NUpload, NUploadDragger, NIcon, NProgress } from 'naive-ui'
 import type { UploadCustomRequestOptions } from 'naive-ui'
+import type { UploadedInputPage } from '../models/types'
+import { uploadedInputPages } from '../utils/uploadedInput'
 
 const emit = defineEmits<{
-  uploaded: [fileId: string, fileName: string]
+  uploaded: [page: UploadedInputPage]
 }>()
 
 defineProps<{
@@ -97,12 +99,8 @@ async function processUploadQueue(): Promise<void> {
       const result = await upload(currentFile)
       if (result) {
         log.addLog(t('components.fileUploader.uploadSuccessLog', { name: result.filename }))
-        if (result.pages && result.pages.length > 0) {
-          for (const page of result.pages) {
-            emit('uploaded', page.file_id, page.filename)
-          }
-        } else {
-          emit('uploaded', result.file_id, result.filename)
+        for (const page of uploadedInputPages(result)) {
+          emit('uploaded', page)
         }
       } else {
         const detail = error.value || t('components.fileUploader.uploadFailedRetry')

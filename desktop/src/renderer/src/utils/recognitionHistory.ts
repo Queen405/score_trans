@@ -10,6 +10,9 @@ export interface RecognitionHistoryPageSource {
   inputFileName: string
   inputFileId: string
   originalFileId?: string
+  sourceDocumentFileId?: string
+  sourceDocumentName?: string
+  sourcePageIndex?: number
   musicxmlFileId?: string
   jianpuText?: string
   ocrText?: string
@@ -19,6 +22,9 @@ export interface RecognitionHistoryPageSource {
 export interface HistoryPageCreateSnapshot {
   input_file_name: string
   input_file_id: string
+  source_document_file_id: string
+  source_document_name: string
+  source_page_index: number
   musicxml_file_id: string
   jianpu_text: string
   ocr_text: string
@@ -47,6 +53,9 @@ export function buildHistoryBatchSnapshot(
     pages: pages.map((page) => ({
       input_file_name: page.inputFileName,
       input_file_id: page.originalFileId || page.inputFileId,
+      source_document_file_id: page.sourceDocumentFileId ?? '',
+      source_document_name: page.sourceDocumentName ?? '',
+      source_page_index: page.sourcePageIndex ?? -1,
       musicxml_file_id: page.musicxmlFileId ?? '',
       jianpu_text: page.jianpuText ?? '',
       ocr_text: page.ocrText ?? '',

@@ -40,6 +40,9 @@ export interface TaskPage {
   taskId: string
   inputFileName: string
   inputFileId: string
+  sourceDocumentFileId: string
+  sourceDocumentName: string
+  sourcePageIndex: number
   originalFileName: string
   originalFileId: string
   musicxmlFileId: string
@@ -76,6 +79,9 @@ export interface TaskPageInput {
   historyBatchId?: number | null
   taskId?: string
   inputFileId: string
+  sourceDocumentFileId?: string
+  sourceDocumentName?: string
+  sourcePageIndex?: number
   originalFileName?: string
   originalFileId?: string
   musicxmlFileId?: string
@@ -115,6 +121,9 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
     taskId: '',
     inputFileName: '',
     inputFileId: '',
+    sourceDocumentFileId: '',
+    sourceDocumentName: '',
+    sourcePageIndex: -1,
     originalFileName: '',
     originalFileId: '',
     musicxmlFileId: '',
@@ -302,7 +311,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     return true
   }
 
-  function addInputPage(name: string, fileId: string): number {
+  function addInputPage(
+    name: string,
+    fileId: string,
+    source: Partial<Pick<TaskPage, 'sourceDocumentFileId' | 'sourceDocumentName' | 'sourcePageIndex'>> = {},
+  ): number {
     // Find current draft batch (unsealed) or create a new batch ID
     let bid = currentBatchId.value
     const currentBatch = bid ? batches.value.find((b) => b.id === bid) : undefined
@@ -318,6 +331,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       inputFileName: name,
       historyPageId: null,
       inputFileId: fileId,
+      sourceDocumentFileId: source.sourceDocumentFileId ?? '',
+      sourceDocumentName: source.sourceDocumentName ?? '',
+      sourcePageIndex: source.sourcePageIndex ?? -1,
       status: 'pending',
     })
     // Update batch label if this is the first page in the batch
@@ -456,6 +472,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       historyPageId: null,
       historyBatchId: null,
       inputFileId: fileId,
+      sourceDocumentFileId: '',
+      sourceDocumentName: '',
+      sourcePageIndex: -1,
       originalFileName: '',
       originalFileId: '',
       musicxmlFileId: '',
@@ -980,6 +999,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       historyBatchId: p.historyBatchId ?? null,
       taskId: p.taskId ?? '',
       inputFileId: p.inputFileId,
+      sourceDocumentFileId: p.sourceDocumentFileId ?? '',
+      sourceDocumentName: p.sourceDocumentName ?? '',
+      sourcePageIndex: p.sourcePageIndex ?? -1,
       originalFileName: p.originalFileName ?? '',
       originalFileId: p.originalFileId ?? '',
       musicxmlFileId: p.musicxmlFileId ?? '',
@@ -1192,6 +1214,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       historyBatchId: p.historyBatchId ?? null,
       taskId: p.taskId ?? '',
       inputFileId: p.inputFileId,
+      sourceDocumentFileId: p.sourceDocumentFileId ?? '',
+      sourceDocumentName: p.sourceDocumentName ?? '',
+      sourcePageIndex: p.sourcePageIndex ?? -1,
       originalFileName: p.originalFileName ?? '',
       originalFileId: p.originalFileId ?? '',
       musicxmlFileId: p.musicxmlFileId ?? '',

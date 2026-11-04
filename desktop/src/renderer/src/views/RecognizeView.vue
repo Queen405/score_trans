@@ -370,6 +370,8 @@ import {
   updateLiveRecognitionPage,
 } from '../utils/liveRecognitionState'
 import { useFileUpload } from '../composables/useFileUpload'
+import { uploadedInputPages } from '../utils/uploadedInput'
+import type { UploadedInputPage } from '../models/types'
 import FileUploader from '../components/FileUploader.vue'
 import HistoryQuickEntry from '../components/HistoryQuickEntry.vue'
 import EfficiencyDashboard from '../components/EfficiencyDashboard.vue'
@@ -734,9 +736,9 @@ function removePageById(pageId: string): void {
   log.addLog(t('recognize.log.removed', { name: page.inputFileName }))
 }
 
-async function onFileUploaded(fileId: string, fileName: string): Promise<void> {
-  store.addInputPage(fileName, fileId)
-  log.addLog(t('recognize.log.added', { name: fileName }))
+async function onFileUploaded(input: UploadedInputPage): Promise<void> {
+  store.addInputPage(input.inputFileName, input.inputFileId, input)
+  log.addLog(t('recognize.log.added', { name: input.inputFileName }))
 }
 
 function reuploadForPage(page: TaskPage): void {
@@ -750,21 +752,18 @@ function reuploadForPage(page: TaskPage): void {
     log.addLog(t('recognize.log.reuploading', { name: file.name }))
     const result = await reupload.upload(file)
     if (result) {
-      let fileId: string
-      let fileName: string
-      if (result.pages && result.pages.length > 0) {
-        fileId = result.pages[0].file_id
-        fileName = result.pages[0].filename
-      } else {
-        fileId = result.file_id
-        fileName = result.filename
-      }
-      const previewable = isPreviewable(fileName)
+      const input = uploadedInputPages(result)[0]
+      if (!input) return
+      const { inputFileId, inputFileName } = input
+      const previewable = isPreviewable(inputFileName)
       store.patchPageById(page.id, {
-        inputFileId: fileId,
-        inputFileName: fileName,
-        originalFileId: previewable ? fileId : '',
-        originalFileName: previewable ? fileName : '',
+        inputFileId,
+        inputFileName,
+        sourceDocumentFileId: input.sourceDocumentFileId,
+        sourceDocumentName: input.sourceDocumentName,
+        sourcePageIndex: input.sourcePageIndex,
+        originalFileId: previewable ? inputFileId : '',
+        originalFileName: previewable ? inputFileName : '',
         musicxmlFileId: '',
         musicxmlText: '',
         jianpuText: '',
@@ -773,7 +772,7 @@ function reuploadForPage(page: TaskPage): void {
         status: 'pending',
         errorMessage: '',
       })
-      log.addLog(t('recognize.log.reuploadSuccess', { name: fileName }))
+      log.addLog(t('recognize.log.reuploadSuccess', { name: inputFileName }))
     } else {
       message.error(t('recognize.message.reuploadFailed'))
     }
