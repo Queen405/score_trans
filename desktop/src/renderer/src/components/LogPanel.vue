@@ -15,6 +15,7 @@
       />
       <span class="log-ts">{{ entry.timestamp }}</span>
       <span class="log-msg">{{ entry.message }}</span>
+      <copy-text-button :text="`${entry.timestamp} ${entry.message}`" />
     </div>
     <div
       v-if="!logStore.entries.length"
@@ -30,6 +31,7 @@
 import { ref, watch, nextTick } from 'vue'
 import { useLogStore } from '../stores/log'
 import { t } from '../i18n'
+import CopyTextButton from './CopyTextButton.vue'
 
 const logStore = useLogStore()
 const logContainer = ref<HTMLDivElement>()
@@ -79,7 +81,14 @@ watch(
 }
 
 .log-msg {
+  min-width: 0;
+  flex: 1;
   color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.log-line :deep(.copy-text-button) {
+  margin-top: -2px;
 }
 
 .log-msg.empty {

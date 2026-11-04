@@ -28,6 +28,7 @@ const settings: typeof zhSettings = {
     toolsStorage: 'Tools & storage',
     conversion: 'Conversion & export',
     appearance: 'Appearance',
+    jianpuLayout: 'Jianpu layout',
   },
   service: {
     provider: 'Provider',
@@ -105,6 +106,12 @@ const settings: typeof zhSettings = {
     recognitionOverlay: 'Recognized notes overlay',
     ocrOverlay: 'Jianpu OCR overlay',
     layout: 'Jianpu layout',
+    layoutPage: 'Page and header',
+    layoutTypography: 'Text sizes',
+    layoutVoices: 'Systems and voices',
+    layoutLyrics: 'Lyric spacing',
+    layoutRhythm: 'Rhythm and measures',
+
     contentScale: 'Overall size',
     systemGap: 'System spacing',
     shortNoteGap: 'Short note spacing',

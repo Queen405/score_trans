@@ -16,6 +16,8 @@ const common: typeof zhCommon = {
     delete: 'Delete',
     remove: 'Remove',
     copy: 'Copy',
+    copied: 'Copied',
+    copyFailed: 'Copy failed, please try again',
     refresh: 'Refresh',
     reset: 'Reset',
     retry: 'Retry',

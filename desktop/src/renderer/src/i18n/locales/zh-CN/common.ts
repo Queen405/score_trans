@@ -14,6 +14,8 @@ const common = {
     delete: '删除',
     remove: '移除',
     copy: '复制',
+    copied: '已复制',
+    copyFailed: '复制失败，请稍后重试',
     refresh: '刷新',
     reset: '重置',
     retry: '重试',

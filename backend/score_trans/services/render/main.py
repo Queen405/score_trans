@@ -539,9 +539,9 @@ def _a4_renderer(
         text_lane_clearance=base.text_lane_clearance * layout.lyric_note_gap_scale,
     )
     if style.content_width < 100:
-        raise RenderError("??????????????????")
+        raise RenderError("左右页边距过大，未给谱面保留足够宽度")
     if style.page_height - style.margin_top - style.margin_bottom < 100:
-        raise RenderError("??????????????????")
+        raise RenderError("上下页边距过大，未给谱面保留足够高度")
     return PublicationRenderer(
         style,
         coordinate_scale=scale,

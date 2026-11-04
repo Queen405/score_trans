@@ -258,14 +258,18 @@ def _governing_key_map(normalized: str) -> tuple[list[str], list[list[str]]]:
     return masked_lines, key_lines
 
 
-def _masked_columns(line: str) -> list[int]:
-    """该行在剥掉调号后仍保留的真实列下标，用于把 masked 列映射回原列。"""
+def _content_columns(line: str) -> list[int]:
+    """Map content characters while excluding key tokens and visual whitespace."""
     skipped: set[int] = set()
     for token in _find_key_tokens(line):
         skipped.update(range(token.start, token.end))
         if token.end < len(line) and line[token.end] == " ":
             skipped.add(token.end)
-    return [column for column in range(len(line)) if column not in skipped]
+    return [
+        index
+        for index, character in enumerate(line)
+        if index not in skipped and not character.isspace()
+    ]
 
 
 def _rekey_by_governing_key(
@@ -275,20 +279,38 @@ def _rekey_by_governing_key(
 ) -> str | None:
     """纯调号编辑时按管辖调逐段重写；内容也变了则返回 None，交回调号序列路径。
 
-    「剥掉调号后非空行内容完全相同」正是纯调号编辑的定义：此时音符一一对应，
-    每个字符的新旧管辖调都能直接读出，删除调号也就有了确定的回退目标。
+    剥掉调号后，逐行的非空白内容必须完全相同。空白差异只改变视觉间距，
+    不改变音符对应关系；这也能覆盖删除行内调号后留下两个空格的真实编辑。
     """
     old_masked, old_keys = _governing_key_map(old_normalized)
     new_masked, new_keys = _governing_key_map(new_normalized)
     old_indexes = [index for index, line in enumerate(old_masked) if line.strip()]
     new_indexes = [index for index, line in enumerate(new_masked) if line.strip()]
-    if [old_masked[i] for i in old_indexes] != [new_masked[i] for i in new_indexes]:
+
+    def content(line: str) -> str:
+        return "".join(character for character in line if not character.isspace())
+
+    if [content(old_masked[i]) for i in old_indexes] != [
+        content(new_masked[i]) for i in new_indexes
+    ]:
         return None
 
     lines = new_normalized.split("\n")
     for old_index, new_index in zip(old_indexes, new_indexes):
-        old_line_keys = old_keys[old_index]
-        new_line_keys = new_keys[new_index]
+        old_line_keys = [
+            key
+            for key, character in zip(
+                old_keys[old_index], old_masked[old_index], strict=True
+            )
+            if not character.isspace()
+        ]
+        new_line_keys = [
+            key
+            for key, character in zip(
+                new_keys[new_index], new_masked[new_index], strict=True
+            )
+            if not character.isspace()
+        ]
         if old_line_keys == new_line_keys:
             continue
         # metadata 判定必须用剥掉调号后的内容：行首调号（如「1=G 5 6 7」）会让
@@ -313,7 +335,7 @@ def _rekey_line_by_key_runs(
     分段而不是整行处理，是为了让一行里同时存在旧段与新段的情形也正确——行内换调
     (如「1 2 | 1=D 3 4」)会把一行切成两个管辖调不同的区段。
     """
-    columns = _masked_columns(line)
+    columns = _content_columns(line)
     pieces: list[str] = []
     cursor = 0
     index = 0

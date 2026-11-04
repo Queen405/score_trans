@@ -149,6 +149,7 @@ import {
 import {
   CloudOutline,
   ColorPaletteOutline,
+  GridOutline,
   SettingsOutline,
   SwapHorizontalOutline,
 } from '@vicons/ionicons5'
@@ -157,10 +158,11 @@ import { useSettingsStore } from '../stores/settings'
 import { t } from '../i18n'
 import AppearanceSettingsPanel from '../components/settings/AppearanceSettingsPanel.vue'
 import ConversionSettingsPanel from '../components/settings/ConversionSettingsPanel.vue'
+import JianpuLayoutSettingsPanel from '../components/settings/JianpuLayoutSettingsPanel.vue'
 import ServiceSettingsPanel from '../components/settings/ServiceSettingsPanel.vue'
 import ToolStorageSettingsPanel from '../components/settings/ToolStorageSettingsPanel.vue'
 
-type SettingsCategory = 'services' | 'tools-storage' | 'conversion' | 'appearance'
+type SettingsCategory = 'services' | 'tools-storage' | 'conversion' | 'jianpu-layout' | 'appearance'
 
 interface CategoryDefinition {
   key: SettingsCategory
@@ -201,6 +203,12 @@ const categories = computed<CategoryDefinition[]>(() => [
     label: t('settings.category.conversion'),
     icon: SwapHorizontalOutline,
     panel: ConversionSettingsPanel,
+  },
+  {
+    key: 'jianpu-layout',
+    label: t('settings.category.jianpuLayout'),
+    icon: GridOutline,
+    panel: JianpuLayoutSettingsPanel,
   },
   {
     key: 'appearance',

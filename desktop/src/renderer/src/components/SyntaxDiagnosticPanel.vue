@@ -19,19 +19,22 @@
       {{ syntaxStore.hideWarnings && syntaxStore.warningCount ? t('components.syntaxDiagnosticPanel.noIssueWarningsHidden') : t('components.syntaxDiagnosticPanel.noIssue') }}
     </div>
     <template v-else>
-      <button
+      <div
         v-for="diagnostic in syntaxStore.visibleDiagnostics"
         :key="diagnostic.id"
-        type="button"
         class="syntax-diagnostic"
         :class="[{ active: diagnostic.id === syntaxStore.activeId }, diagnostic.severity]"
         @click="selectDiagnostic(diagnostic)"
-        @keydown.enter.prevent="selectDiagnostic(diagnostic)"
-        @keydown.space.prevent="selectDiagnostic(diagnostic)"
       >
-        <span class="syntax-diagnostic-location">{{ diagnostic.measure ? t('components.syntaxDiagnosticPanel.measureLabel', { n: diagnostic.measure }) : '—' }}</span>
-        <span class="syntax-diagnostic-message">{{ diagnostic.message }}</span>
-      </button>
+        <button
+          type="button"
+          class="syntax-diagnostic-target"
+        >
+          <span class="syntax-diagnostic-location">{{ diagnostic.measure ? t('components.syntaxDiagnosticPanel.measureLabel', { n: diagnostic.measure }) : '—' }}</span>
+          <span class="syntax-diagnostic-message">{{ diagnostic.message }}</span>
+        </button>
+        <copy-text-button :text="diagnosticCopyText(diagnostic)" />
+      </div>
     </template>
   </div>
 </template>
@@ -40,10 +43,18 @@
 import { useSyntaxDiagnosticsStore } from '../stores/syntaxDiagnostics'
 import type { SyntaxDiagnostic } from '../models/types'
 import { t } from '../i18n'
+import CopyTextButton from './CopyTextButton.vue'
 const syntaxStore = useSyntaxDiagnosticsStore()
 
 function selectDiagnostic(diagnostic: SyntaxDiagnostic): void {
   syntaxStore.setActive(diagnostic.id)
+}
+
+function diagnosticCopyText(diagnostic: SyntaxDiagnostic): string {
+  const location = diagnostic.measure
+    ? t('components.syntaxDiagnosticPanel.measureLabel', { n: diagnostic.measure })
+    : '—'
+  return `${location} ${diagnostic.message}`
 }
 </script>
 
@@ -108,6 +119,26 @@ function selectDiagnostic(diagnostic: SyntaxDiagnostic): void {
 
 .syntax-diagnostic.warning .syntax-diagnostic-location {
   color: var(--warning);
+}
+
+.syntax-diagnostic-target {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.syntax-diagnostic-target:focus-visible {
+  outline: 2px solid var(--sv-accent, #5f739f);
+  outline-offset: 1px;
 }
 
 .syntax-diagnostic-message {

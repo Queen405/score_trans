@@ -25,6 +25,7 @@ const settings = {
     toolsStorage: '工具与存储',
     conversion: '转换与导出',
     appearance: '界面与外观',
+    jianpuLayout: '简谱版式',
   },
   service: {
     provider: '服务商',
@@ -102,6 +103,12 @@ const settings = {
     recognitionOverlay: '识别音符叠加',
     ocrOverlay: '简谱 OCR 叠加',
     layout: '简谱版式',
+    layoutPage: '页面与页眉',
+    layoutTypography: '文字字号',
+    layoutVoices: '行与声部',
+    layoutLyrics: '歌词间距',
+    layoutRhythm: '节奏与小节',
+
     contentScale: '整体大小',
     systemGap: '行间距',
     shortNoteGap: '短音符间距',

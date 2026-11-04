@@ -945,6 +945,20 @@ watch(() => settings.jianpuMeasureDurationCheck, () => {
   syntaxStore.schedule(operationalJianpuText.value)
 })
 
+
+watch(() => settings.jianpuLayoutKey, async (_current, previous) => {
+  if (previous === undefined || !store.currentBatchPages.length) return
+  try {
+    await renderFinalBatch()
+  } catch (error: unknown) {
+    if (isRenderAborted(error)) return
+    if (handleJianpuOutputBlocked('historyRender', error)) return
+    const detail = error instanceof Error ? error.message : String(error)
+    log.addError(t('convert.history.relayoutFailed', { detail }))
+    message.error(t('convert.history.relayoutFailed', { detail }))
+  }
+})
+
 watch(() => syntaxStore.selectionVersion, () => {
   const diagnostic = syntaxStore.activeId
     ? syntaxStore.diagnostics.find((item) => item.id === syntaxStore.activeId)

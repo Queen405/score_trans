@@ -447,6 +447,23 @@ def test_rekey_deleting_a_key_token_but_leaving_a_blank_line_behaves_the_same() 
     assert _rekey(text, previous) == "1=C\n4/4\n1 2 3 4 |\n\n1 2 3 4 |"
 
 
+def test_rekey_deleting_an_inline_key_ignores_the_extra_whitespace() -> None:
+    previous = "1=C\n4/4\n1 2 3 4 | 1=D b7, 1 2 b3 |"
+    text = "1=C\n4/4\n1 2 3 4 |  b7, 1 2 b3 |"
+
+    result = rekey_text(text, previous)
+
+    assert result.skip_reason is None
+    assert result.text == "1=C\n4/4\n1 2 3 4 |  1 2 3 4 |"
+
+
+def test_rekey_deleting_an_inline_key_preserves_tab_separation() -> None:
+    previous = "1=C\n1 2 | 1=D\t5 6 |"
+    text = "1=C\n1 2 | \t5 6 |"
+
+    assert _rekey(text, previous) == "1=C\n1 2 | \t6 7 |"
+
+
 def test_rekey_deleting_a_key_together_with_a_note_edit_is_reported() -> None:
     # The gate rejects this: notes changed too, so they no longer correspond and
     # guessing an old key would write wrong pitches.
