@@ -1309,7 +1309,7 @@ async function refreshExpandedBatch(
     loadingBatchId.value = batchId
   }
   try {
-    const batch: HistoryBatch = await requireData(historyApi.get(batchId))
+    const batch: HistoryBatch = await requireData(historyApi.get(batchId, false))
     if (historyDetailEpoch.isCurrent(requestToken) && expandedBatchId.value === batchId) {
       expandedPages.value = batch.pages
       expandedBatchJianpuText.value = batch.jianpu_text ?? ''
@@ -1521,7 +1521,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
 async function fetchStableHistoryBatch(batchId: number): Promise<HistoryBatch | null> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const requestToken = historyDetailEpoch.begin()
-    const batch = await requireData(historyApi.get(batchId))
+    const batch = await requireData(historyApi.get(batchId, false))
     if (expandedBatchId.value !== batchId) return null
     if (historyDetailEpoch.isCurrent(requestToken)) {
       if (loadingBatchId.value === batchId) loadingBatchId.value = null
@@ -2168,6 +2168,7 @@ async function enterEditMode() {
   if (!correctableSheet.value) {
     loadingEntities.value = true
     try {
+      await ensureCurrentMusicXml()
       await loadEntities()
     } finally {
       loadingEntities.value = false
@@ -2182,6 +2183,16 @@ function cancelEditMode() {
   // 取消 = 放弃本次所有暂存：删除集合与候选选择都回到已应用基线
   deletedEntityIds.value = new Set(store.currentPage?.deletedSourceIds ?? [])
   candidateSelections.value = { ...(store.currentPage?.recognitionCandidateSelections ?? {}) }
+}
+
+async function ensureCurrentMusicXml(): Promise<void> {
+  const page = store.currentPage
+  if (!page || page.originalMusicxml || !page.historyPageId) return
+  const detail = await requireData(historyApi.getPage(page.historyPageId))
+  store.patchPageById(page.id, {
+    originalMusicxml: detail.original_musicxml,
+    workingMusicxml: detail.working_musicxml || detail.original_musicxml,
+  })
 }
 
 async function loadEntities(): Promise<void> {

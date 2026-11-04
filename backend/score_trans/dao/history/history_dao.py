@@ -259,14 +259,16 @@ class HistoryDao:
             referenced.update(_load_render_page_file_ids(row["render_page_file_ids"]))
         return referenced
 
-    def get_batch(self, batch_id: int) -> HistoryBatch | None:
+    def get_batch(
+        self, batch_id: int, *, include_musicxml: bool = True
+    ) -> HistoryBatch | None:
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT * FROM history_batch WHERE id = ?", (batch_id,)
             ).fetchone()
             if not row:
                 return None
-            return self._row_to_batch(conn, row)
+            return self._row_to_batch(conn, row, include_musicxml=include_musicxml)
 
     def get_page(self, page_id: int) -> HistoryPage | None:
         with self._connect() as conn:
@@ -1056,9 +1058,22 @@ class HistoryDao:
             """
         )
 
-    def _row_to_batch(self, conn: sqlite3.Connection, row: sqlite3.Row) -> HistoryBatch:
+    def _row_to_batch(
+        self,
+        conn: sqlite3.Connection,
+        row: sqlite3.Row,
+        *,
+        include_musicxml: bool = True,
+    ) -> HistoryBatch:
+        columns = [
+            column_row["name"]
+            for column_row in conn.execute("PRAGMA table_info(history_page)")
+            if include_musicxml
+            or column_row["name"] not in {"original_musicxml", "working_musicxml"}
+        ]
         page_rows = conn.execute(
-            "SELECT * FROM history_page WHERE batch_id = ? ORDER BY position ASC, id ASC",
+            f"SELECT {', '.join(columns)} FROM history_page "
+            "WHERE batch_id = ? ORDER BY position ASC, id ASC",
             (row["id"],),
         ).fetchall()
         return self._row_to_batch_rows(row, page_rows)

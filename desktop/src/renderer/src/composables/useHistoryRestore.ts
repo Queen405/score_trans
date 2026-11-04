@@ -74,7 +74,7 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
 
     let batch: HistoryBatch
     try {
-      batch = await requireData(historyApi.get(entry.id))
+      batch = await requireData(historyApi.get(entry.id, false))
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       log.addError(t('runtime.history.loadDetailFailed', { message: msg }))

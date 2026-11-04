@@ -2,6 +2,7 @@ import sqlite3
 
 import pytest
 from score_trans.dao.history.history_dao import HistoryDao
+from score_trans.exec.history.actions import HistoryActions
 from score_trans.models.history.entities import HistoryPage, HistoryRenderPageOcrText
 from score_trans.models.provenance.schemas import (
     SourceTextAttachment,
@@ -873,3 +874,26 @@ def test_update_page_does_not_record_completed_at_for_non_terminal_status(
     assert updated is not None
     assert updated.status == "processing"
     assert updated.completed_at == ""
+
+
+def test_history_detail_can_omit_musicxml_until_marker_editing(tmp_path) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    batch = service.create_batch(
+        [
+            HistoryPage(
+                input_file_name="page.png",
+                original_musicxml="original-xml",
+                working_musicxml="working-xml",
+            )
+        ]
+    )
+    actions = HistoryActions(service)
+
+    slim = actions.get_history(batch.id, include_musicxml=False)
+    full = actions.get_history(batch.id)
+
+    assert slim.pages[0].original_musicxml == ""
+    assert slim.pages[0].working_musicxml == ""
+    assert full.pages[0].original_musicxml == "original-xml"
+    assert full.pages[0].working_musicxml == "working-xml"
+    assert actions.get_history_page(batch.pages[0].id).working_musicxml == "working-xml"

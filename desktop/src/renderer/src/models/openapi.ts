@@ -4802,7 +4802,9 @@ export interface operations {
     };
     get_history_history__batch_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                include_musicxml?: boolean;
+            };
             header?: never;
             path: {
                 batch_id: number;

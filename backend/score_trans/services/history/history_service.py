@@ -25,8 +25,10 @@ class HistoryService:
     def list_batch_summaries(self) -> list[HistoryBatchSummary]:
         return self.dao.list_batch_summaries()
 
-    def get_batch(self, batch_id: int) -> HistoryBatch | None:
-        return self.dao.get_batch(batch_id)
+    def get_batch(
+        self, batch_id: int, *, include_musicxml: bool = True
+    ) -> HistoryBatch | None:
+        return self.dao.get_batch(batch_id, include_musicxml=include_musicxml)
 
     def get_page(self, page_id: int) -> HistoryPage | None:
         return self.dao.get_page(page_id)

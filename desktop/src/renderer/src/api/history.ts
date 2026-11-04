@@ -23,8 +23,8 @@ export const historyApi = {
     return apiFetch('/history')
   },
 
-  get(id: number): Promise<ApiResult<HistoryBatch>> {
-    return apiFetch(`/history/${id}`)
+  get(id: number, includeMusicxml = true): Promise<ApiResult<HistoryBatch>> {
+    return apiFetch(`/history/${id}?include_musicxml=${includeMusicxml ? 'true' : 'false'}`)
   },
 
   getPage(id: number): Promise<ApiResult<HistoryPage>> {

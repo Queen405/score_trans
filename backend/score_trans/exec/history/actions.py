@@ -98,11 +98,13 @@ class HistoryActions:
             )
         )
 
-    def get_history(self, batch_id: int) -> BatchResponse:
-        batch = self.service.get_batch(batch_id)
+    def get_history(
+        self, batch_id: int, *, include_musicxml: bool = True
+    ) -> BatchResponse:
+        batch = self.service.get_batch(batch_id, include_musicxml=include_musicxml)
         if not batch:
             raise FileNotFoundError("Batch not found")
-        return _batch_to_response(batch)
+        return _batch_to_response(batch, include_musicxml=include_musicxml)
 
     def get_history_page(self, page_id: int) -> PageResponse:
         page = self.service.get_page(page_id)
@@ -305,7 +307,9 @@ class HistoryActions:
         return DeleteAllResponse(deleted_count=self.service.delete_all())
 
 
-def _page_to_response(page: HistoryPage) -> PageResponse:
+def _page_to_response(
+    page: HistoryPage, *, include_musicxml: bool = True
+) -> PageResponse:
     return PageResponse(
         id=page.id,
         batch_id=page.batch_id,
@@ -329,14 +333,16 @@ def _page_to_response(page: HistoryPage) -> PageResponse:
         status=page.status,
         error_message=page.error_message,
         omr_file_id=page.omr_file_id,
-        original_musicxml=page.original_musicxml,
-        working_musicxml=page.working_musicxml,
+        original_musicxml=page.original_musicxml if include_musicxml else "",
+        working_musicxml=page.working_musicxml if include_musicxml else "",
         deleted_source_ids=page.deleted_source_ids,
         recognition_candidate_selections=page.recognition_candidate_selections,
     )
 
 
-def _batch_to_response(batch: HistoryBatch) -> BatchResponse:
+def _batch_to_response(
+    batch: HistoryBatch, *, include_musicxml: bool = True
+) -> BatchResponse:
     return BatchResponse(
         id=batch.id,
         created_at=batch.created_at,
@@ -355,7 +361,9 @@ def _batch_to_response(batch: HistoryBatch) -> BatchResponse:
             for item in batch.render_page_ocr_texts
         ],
         render_output_stale=batch.render_output_stale,
-        pages=[_page_to_response(p) for p in batch.pages],
+        pages=[
+            _page_to_response(p, include_musicxml=include_musicxml) for p in batch.pages
+        ],
     )
 
 

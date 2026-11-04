@@ -40,9 +40,10 @@ def create_batch(
 @router.get("/{batch_id}", response_model=BatchResponse)
 def get_history(
     batch_id: int,
+    include_musicxml: bool = True,
     actions: HistoryActions = Depends(get_history_actions),
 ):
-    return actions.get_history(batch_id)
+    return actions.get_history(batch_id, include_musicxml=include_musicxml)
 
 
 @router.get("/pages/{page_id}", response_model=PageResponse)
