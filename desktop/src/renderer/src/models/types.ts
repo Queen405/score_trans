@@ -102,4 +102,5 @@ export interface UploadedInputPage {
   sourceDocumentFileId: string
   sourceDocumentName: string
   sourcePageIndex: number
+  sourceRotation: 0 | 90 | 180 | 270
 }

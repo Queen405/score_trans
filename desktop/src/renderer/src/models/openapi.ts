@@ -313,6 +313,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/files/{file_id}/pdf-page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview Pdf Page */
+        get: operations["preview_pdf_page_files__file_id__pdf_page_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/files/{file_id}/rotate": {
         parameters: {
             query?: never;
@@ -2430,6 +2447,12 @@ export type components = {
              */
             source_page_index?: number;
             /**
+             * Source Rotation
+             * @default 0
+             * @enum {integer}
+             */
+            source_rotation?: 0 | 90 | 180 | 270;
+            /**
              * Status
              * @default completed
              */
@@ -2542,6 +2565,12 @@ export type components = {
              * @default -1
              */
             source_page_index?: number;
+            /**
+             * Source Rotation
+             * @default 0
+             * @enum {integer}
+             */
+            source_rotation?: 0 | 90 | 180 | 270;
             /** Status */
             status: string;
             /** Svg File Id */
@@ -4608,6 +4637,41 @@ export interface operations {
     head_file_files__file_id__head: {
         parameters: {
             query?: never;
+            header?: never;
+            path: {
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_pdf_page_files__file_id__pdf_page_get: {
+        parameters: {
+            query: {
+                page_index: number;
+                rotation?: number;
+                target_width?: number;
+            };
             header?: never;
             path: {
                 file_id: string;

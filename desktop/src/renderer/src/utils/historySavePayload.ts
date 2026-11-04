@@ -111,6 +111,7 @@ export function buildBatchPersistenceSnapshot(
         source_document_file_id: page.sourceDocumentFileId,
         source_document_name: page.sourceDocumentName,
         source_page_index: page.sourcePageIndex,
+        source_rotation: page.sourceRotation,
         task_id: page.taskId,
         musicxml_file_id: page.musicxmlFileId,
         jianpu_text: pageTextAt(input.jianpuText, input.pages, index),

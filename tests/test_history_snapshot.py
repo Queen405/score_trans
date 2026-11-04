@@ -139,7 +139,7 @@ def test_update_batch_jianpu_text_auto_source_skips_snapshot(tmp_path) -> None:
     assert actions.list_jianpu_snapshots(batch_id) == []
 
 
-def test_v7_database_migrates_to_v10_with_snapshots_and_anchor_baselines(
+def test_v7_database_migrates_to_v12_with_snapshots_and_anchor_baselines(
     tmp_path,
 ) -> None:
     db_path = tmp_path / "history.db"
@@ -220,7 +220,7 @@ def test_v7_database_migrates_to_v10_with_snapshots_and_anchor_baselines(
             ).fetchone()
         )
 
-    assert version == 10
+    assert version == 12
     assert table_exists
     with sqlite3.connect(db_path) as conn:
         page_columns = {

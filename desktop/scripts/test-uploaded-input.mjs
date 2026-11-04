@@ -39,5 +39,21 @@ test('ordinary image upload does not pretend to have a PDF source', () => {
     sourceDocumentFileId: '',
     sourceDocumentName: '',
     sourcePageIndex: -1,
+    sourceRotation: 0,
   }])
+})
+
+const previewSourcePath = path.resolve(here, '../src/renderer/src/utils/pdfPreview.ts')
+const previewCompiled = ts.transpileModule(fs.readFileSync(previewSourcePath, 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
+}).outputText
+const previewUrl = `data:text/javascript;base64,${Buffer.from(previewCompiled).toString('base64')}`
+const { pdfPreviewTargetWidth } = await import(previewUrl)
+
+test('PDF preview resolution follows zoom and device pixel ratio', () => {
+  assert.equal(pdfPreviewTargetWidth(2481, 0.2, 1), 512)
+  assert.equal(pdfPreviewTargetWidth(2481, 0.2, 2), 1024)
+  assert.equal(pdfPreviewTargetWidth(2481, 2, 2), 9952)
+  assert.equal(pdfPreviewTargetWidth(100, 0.05, 0), 64)
+  assert.equal(pdfPreviewTargetWidth(2481, 10, 3), 16384)
 })

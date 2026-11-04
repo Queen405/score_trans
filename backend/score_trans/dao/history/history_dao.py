@@ -19,7 +19,7 @@ from ..storage import migrate_legacy_sqlite
 
 DEFAULT_DB_PATH = USER_WORK_DIR / "history.db"
 LEGACY_DB_PATH = LEGACY_WORK_DIR / "history.db"
-_SCHEMA_VERSION = 11
+_SCHEMA_VERSION = 12
 _MAX_SNAPSHOTS = 3
 _MIN_SQLITE_VERSION = (3, 35, 0)
 
@@ -132,6 +132,7 @@ class HistoryDao:
                 source_document_file_id TEXT NOT NULL DEFAULT '',
                 source_document_name TEXT NOT NULL DEFAULT '',
                 source_page_index INTEGER NOT NULL DEFAULT -1,
+                source_rotation INTEGER NOT NULL DEFAULT 0,
                 task_id TEXT NOT NULL DEFAULT '',
                 musicxml_file_id TEXT NOT NULL DEFAULT '',
                 jianpu_text TEXT NOT NULL DEFAULT '',
@@ -318,14 +319,15 @@ class HistoryDao:
                     INSERT INTO history_page
                         (batch_id, input_file_name, input_file_id,
                          source_document_file_id, source_document_name, source_page_index,
-                         task_id, musicxml_file_id, jianpu_text, ocr_text, svg_file_id, engine_version,
+                         source_rotation, task_id, musicxml_file_id,
+                         jianpu_text, ocr_text, svg_file_id, engine_version,
                          document_revision, overlay_svg_file_id,
                          text_attachments, overlay_file_id, source_map_file_id, text_hash,
                          text_anchors, text_anchor_baseline_text,
                          text_anchor_baseline_anchors, status, error_message,
                          completed_at, position, omr_file_id, original_musicxml, working_musicxml,
                          deleted_source_ids, recognition_candidate_selections)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         batch_id,
@@ -334,6 +336,7 @@ class HistoryDao:
                         page.source_document_file_id,
                         page.source_document_name,
                         page.source_page_index,
+                        page.source_rotation,
                         page.task_id,
                         page.musicxml_file_id,
                         page.jianpu_text,
@@ -897,6 +900,7 @@ class HistoryDao:
             ("source_document_file_id", "TEXT NOT NULL DEFAULT ''"),
             ("source_document_name", "TEXT NOT NULL DEFAULT ''"),
             ("source_page_index", "INTEGER NOT NULL DEFAULT -1"),
+            ("source_rotation", "INTEGER NOT NULL DEFAULT 0"),
         ):
             if column not in columns:
                 conn.execute(
@@ -1151,6 +1155,9 @@ class HistoryDao:
             ),
             source_page_index=(
                 row["source_page_index"] if "source_page_index" in row.keys() else -1
+            ),
+            source_rotation=(
+                row["source_rotation"] if "source_rotation" in row.keys() else 0
             ),
             task_id=row["task_id"] if "task_id" in row.keys() else "",
             musicxml_file_id=row["musicxml_file_id"],

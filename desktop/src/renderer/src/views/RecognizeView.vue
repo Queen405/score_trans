@@ -663,6 +663,10 @@ async function rotatePageImage(page: TaskPage, direction: ImageRotationDirection
       inputFileId: result.file_id,
       inputFileName: result.filename,
     }
+    if (page.sourceDocumentFileId) {
+      const delta = direction === 'left' ? 270 : 90
+      patch.sourceRotation = ((page.sourceRotation + delta) % 360) as 0 | 90 | 180 | 270
+    }
     if (updateOriginal) {
       patch.originalFileId = result.file_id
       patch.originalFileName = result.filename
@@ -762,6 +766,7 @@ function reuploadForPage(page: TaskPage): void {
         sourceDocumentFileId: input.sourceDocumentFileId,
         sourceDocumentName: input.sourceDocumentName,
         sourcePageIndex: input.sourcePageIndex,
+        sourceRotation: input.sourceRotation,
         originalFileId: previewable ? inputFileId : '',
         originalFileName: previewable ? inputFileName : '',
         musicxmlFileId: '',

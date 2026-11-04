@@ -15,6 +15,7 @@ class HistoryPage:
     source_document_file_id: str = ""
     source_document_name: str = ""
     source_page_index: int = -1
+    source_rotation: int = 0
     task_id: str = ""
     musicxml_file_id: str = ""
     jianpu_text: str = ""

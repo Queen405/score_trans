@@ -43,6 +43,7 @@ export interface TaskPage {
   sourceDocumentFileId: string
   sourceDocumentName: string
   sourcePageIndex: number
+  sourceRotation: 0 | 90 | 180 | 270
   originalFileName: string
   originalFileId: string
   musicxmlFileId: string
@@ -82,6 +83,7 @@ export interface TaskPageInput {
   sourceDocumentFileId?: string
   sourceDocumentName?: string
   sourcePageIndex?: number
+  sourceRotation?: 0 | 90 | 180 | 270
   originalFileName?: string
   originalFileId?: string
   musicxmlFileId?: string
@@ -124,6 +126,7 @@ function createPage(seed?: Partial<TaskPage>): TaskPage {
     sourceDocumentFileId: '',
     sourceDocumentName: '',
     sourcePageIndex: -1,
+    sourceRotation: 0,
     originalFileName: '',
     originalFileId: '',
     musicxmlFileId: '',
@@ -314,7 +317,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   function addInputPage(
     name: string,
     fileId: string,
-    source: Partial<Pick<TaskPage, 'sourceDocumentFileId' | 'sourceDocumentName' | 'sourcePageIndex'>> = {},
+    source: Partial<Pick<TaskPage, 'sourceDocumentFileId' | 'sourceDocumentName' | 'sourcePageIndex' | 'sourceRotation'>> = {},
   ): number {
     // Find current draft batch (unsealed) or create a new batch ID
     let bid = currentBatchId.value
@@ -334,6 +337,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       sourceDocumentFileId: source.sourceDocumentFileId ?? '',
       sourceDocumentName: source.sourceDocumentName ?? '',
       sourcePageIndex: source.sourcePageIndex ?? -1,
+      sourceRotation: source.sourceRotation ?? 0,
       status: 'pending',
     })
     // Update batch label if this is the first page in the batch
@@ -475,6 +479,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       sourceDocumentFileId: '',
       sourceDocumentName: '',
       sourcePageIndex: -1,
+      sourceRotation: 0,
       originalFileName: '',
       originalFileId: '',
       musicxmlFileId: '',
@@ -1002,6 +1007,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       sourceDocumentFileId: p.sourceDocumentFileId ?? '',
       sourceDocumentName: p.sourceDocumentName ?? '',
       sourcePageIndex: p.sourcePageIndex ?? -1,
+      sourceRotation: p.sourceRotation ?? 0,
       originalFileName: p.originalFileName ?? '',
       originalFileId: p.originalFileId ?? '',
       musicxmlFileId: p.musicxmlFileId ?? '',
@@ -1217,6 +1223,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       sourceDocumentFileId: p.sourceDocumentFileId ?? '',
       sourceDocumentName: p.sourceDocumentName ?? '',
       sourcePageIndex: p.sourcePageIndex ?? -1,
+      sourceRotation: p.sourceRotation ?? 0,
       originalFileName: p.originalFileName ?? '',
       originalFileId: p.originalFileId ?? '',
       musicxmlFileId: p.musicxmlFileId ?? '',

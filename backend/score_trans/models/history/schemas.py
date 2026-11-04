@@ -14,6 +14,7 @@ class PageCreate(BaseModel):
     source_document_file_id: str = ""
     source_document_name: str = ""
     source_page_index: int = -1
+    source_rotation: Literal[0, 90, 180, 270] = 0
     task_id: str = ""
     musicxml_file_id: str = ""
     jianpu_text: str = ""
@@ -71,6 +72,7 @@ class PageResponse(BaseModel):
     source_document_file_id: str = ""
     source_document_name: str = ""
     source_page_index: int = -1
+    source_rotation: Literal[0, 90, 180, 270] = 0
     task_id: str
     musicxml_file_id: str
     jianpu_text: str

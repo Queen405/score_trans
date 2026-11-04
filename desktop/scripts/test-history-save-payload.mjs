@@ -45,6 +45,7 @@ function page(index, historyBatchId = 10) {
     sourceDocumentFileId: 'source-pdf',
     sourceDocumentName: 'score.pdf',
     sourcePageIndex: index,
+    sourceRotation: 90,
     musicxmlFileId: `xml-${index}`,
     jianpuText: `old-${index}`,
     ocrText: `ocr-${index}`,
@@ -115,6 +116,7 @@ test('new batch payload creates all page and render state in one request', () =>
   assert.equal(snapshot.request.pages[1].source_document_file_id, 'source-pdf')
   assert.equal(snapshot.request.pages[1].source_document_name, 'score.pdf')
   assert.equal(snapshot.request.pages[1].source_page_index, 1)
+  assert.equal(snapshot.request.pages[1].source_rotation, 90)
   assert.equal(snapshot.request.render_output_stale, true)
 })
 

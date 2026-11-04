@@ -13,7 +13,7 @@
         />
         <img
           v-else-if="fileUrl && isImage"
-          :src="fileUrl"
+          :src="displayFileUrl"
           :alt="fileName"
           :width="imgW"
           :height="imgH"
@@ -233,11 +233,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch, nextTick, useId } from 'vue'
-import { fetchFileBlob } from '../api/client'
+import { fetchFileBlob, fetchPdfPageBlob } from '../api/client'
 import { t } from '../i18n'
 import { ImageOutline } from '@vicons/ionicons5'
 import { NIcon, useMessage } from 'naive-ui'
 import { useZoomPan } from '../composables/useZoomPan'
+import { pdfPreviewTargetWidth } from '../utils/pdfPreview'
 import { useSettingsStore } from '../stores/settings'
 import { useLogStore } from '../stores/log'
 import type { CorrectableEntityDTO } from '../models/types'
@@ -246,6 +247,10 @@ import RecognitionSymbol from './RecognitionSymbol.vue'
 const props = defineProps<{
   fileId: string
   fileName: string
+  sourceDocumentFileId?: string
+  sourceDocumentName?: string
+  sourcePageIndex?: number
+  sourceRotation?: 0 | 90 | 180 | 270
   overlayFileId?: string
   sourceMapFileId?: string
   clickableSourceIds?: string[]
@@ -294,6 +299,7 @@ const zp = useZoomPan(containerRef)
 const imgW = ref(0)
 const imgH = ref(0)
 const fileUrl = ref('')
+const pdfPreviewUrl = ref('')
 const overlayImgUrl = ref('')
 const showOverlay = ref(settings.showRecognitionOverlay)
 const sourceMap = ref<SourceMap | null>(null)
@@ -311,6 +317,12 @@ const isPdf = computed(() => extension.value === 'pdf')
 const isImage = computed(() => ['png', 'jpg', 'jpeg', 'tif', 'tiff', 'webp'].includes(extension.value))
 const hasOverlay = computed(() => !!props.overlayFileId)
 const canShowOverlay = computed(() => hasOverlay.value && isImage.value)
+const hasPdfSource = computed(() => (
+  !!props.sourceDocumentFileId
+  && (props.sourcePageIndex ?? -1) >= 0
+  && /\.pdf$/i.test(props.sourceDocumentName ?? '')
+))
+const displayFileUrl = computed(() => pdfPreviewUrl.value || fileUrl.value)
 const sourceSheet = computed(() => sourceMap.value?.sheets?.[0] ?? null)
 const clickableSourceIdSet = computed(() => new Set(props.clickableSourceIds ?? []))
 const mappedSourceIdSet = computed(() => new Set(props.mappedSourceIds ?? []))
@@ -523,14 +535,119 @@ function notifyUnmapped(): void {
   message.info(t('components.originalPreview.noteNotMapped'))
 }
 
+interface PdfPreviewCacheEntry {
+  url: string
+  pixels: number
+}
+
+const PDF_PREVIEW_DEBOUNCE_MS = 180
+const PDF_PREVIEW_CACHE_MAX_PIXELS = 32_000_000
+const pdfPreviewCache = new Map<string, PdfPreviewCacheEntry>()
+let pdfPreviewTimer: number | undefined
+let pdfPreviewController: AbortController | null = null
+let pdfPreviewRequestSeq = 0
+
+function clearPdfPreviewCache(): void {
+  pdfPreviewRequestSeq += 1
+  if (pdfPreviewTimer !== undefined) window.clearTimeout(pdfPreviewTimer)
+  pdfPreviewTimer = undefined
+  pdfPreviewController?.abort()
+  pdfPreviewController = null
+  for (const entry of pdfPreviewCache.values()) URL.revokeObjectURL(entry.url)
+  pdfPreviewCache.clear()
+  pdfPreviewUrl.value = ''
+}
+
+function trimPdfPreviewCache(): void {
+  let pixels = [...pdfPreviewCache.values()].reduce((sum, entry) => sum + entry.pixels, 0)
+  for (const [key, entry] of pdfPreviewCache) {
+    if (pixels <= PDF_PREVIEW_CACHE_MAX_PIXELS || pdfPreviewCache.size <= 1) break
+    if (entry.url === pdfPreviewUrl.value) continue
+    pdfPreviewCache.delete(key)
+    URL.revokeObjectURL(entry.url)
+    pixels -= entry.pixels
+  }
+}
+
+async function loadPdfPreview(targetWidth: number): Promise<void> {
+  const sourceId = props.sourceDocumentFileId
+  const pageIndex = props.sourcePageIndex ?? -1
+  const rotation = props.sourceRotation ?? 0
+  if (!sourceId || pageIndex < 0) return
+  const seq = ++pdfPreviewRequestSeq
+  pdfPreviewController?.abort()
+  const key = `${sourceId}:${pageIndex}:${rotation}:${targetWidth}`
+  const cached = pdfPreviewCache.get(key)
+  if (cached) {
+    pdfPreviewCache.delete(key)
+    pdfPreviewCache.set(key, cached)
+    pdfPreviewUrl.value = cached.url
+    return
+  }
+
+  const controller = new AbortController()
+  pdfPreviewController = controller
+  const result = await fetchPdfPageBlob(sourceId, {
+    pageIndex,
+    targetWidth,
+    rotation,
+  }, controller.signal)
+  if (seq !== pdfPreviewRequestSeq || result.error) return
+  const url = URL.createObjectURL(result.data)
+  pdfPreviewCache.set(key, { url, pixels: targetWidth * targetWidth * 2 })
+  pdfPreviewUrl.value = url
+  trimPdfPreviewCache()
+}
+
+function schedulePdfPreview(): void {
+  if (!hasPdfSource.value || imgW.value <= 0 || zp.scale.value <= 0) return
+  if (pdfPreviewTimer !== undefined) window.clearTimeout(pdfPreviewTimer)
+  const targetWidth = pdfPreviewTargetWidth(
+    imgW.value,
+    zp.scale.value,
+    window.devicePixelRatio || 1,
+  )
+  pdfPreviewTimer = window.setTimeout(() => {
+    pdfPreviewTimer = undefined
+    void loadPdfPreview(targetWidth)
+  }, PDF_PREVIEW_DEBOUNCE_MS)
+}
+
 function onImgLoad(e: Event) {
   const img = e.target as HTMLImageElement
-  if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+  const isEnhancedPdf = hasPdfSource.value
+    && !!pdfPreviewUrl.value
+    && (img.currentSrc || img.src) === pdfPreviewUrl.value
+  if (!isEnhancedPdf && img.naturalWidth > 0 && img.naturalHeight > 0) {
+    // 高清 PDF 只替换位图源；逻辑尺寸始终保持 OMR 坐标系，避免叠加层漂移。
     imgW.value = img.naturalWidth
     imgH.value = img.naturalHeight
+    requestAnimationFrame(() => zp.fitToView())
   }
-  requestAnimationFrame(() => zp.fitToView())
 }
+
+watch(
+  () => [
+    props.sourceDocumentFileId ?? '',
+    props.sourceDocumentName ?? '',
+    props.sourcePageIndex ?? -1,
+    props.sourceRotation ?? 0,
+  ] as const,
+  clearPdfPreviewCache,
+)
+
+watch(
+  () => [
+    hasPdfSource.value,
+    props.sourceDocumentFileId ?? '',
+    props.sourcePageIndex ?? -1,
+    props.sourceRotation ?? 0,
+    imgW.value,
+    zp.scale.value,
+  ] as const,
+  schedulePdfPreview,
+  { flush: 'post' },
+)
 
 watch(fileUrl, async (url) => {
   if (url) {
@@ -551,6 +668,9 @@ watch(
       controller.abort()
     })
 
+    clearPdfPreviewCache()
+    imgW.value = 0
+    imgH.value = 0
     if (fileUrl.value) {
       URL.revokeObjectURL(fileUrl.value)
       fileUrl.value = ''
@@ -634,6 +754,7 @@ onUnmounted(() => {
   zp.unbind()
   markerPositionObserver?.disconnect()
   markerResizeObserver?.disconnect()
+  clearPdfPreviewCache()
   if (fileUrl.value) URL.revokeObjectURL(fileUrl.value)
   if (overlayImgUrl.value) URL.revokeObjectURL(overlayImgUrl.value)
 })

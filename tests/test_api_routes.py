@@ -2,6 +2,8 @@ import asyncio
 import time
 from pathlib import Path
 
+import pytest
+
 from fastapi.testclient import TestClient
 from score_trans.api.app import create_app
 from score_trans.api.dependencies import (
@@ -49,6 +51,7 @@ def test_render_routes_are_registered() -> None:
     assert "/history/pages/{page_id}" in paths
     assert "/history/{batch_id}/render-page-ocr-texts" in paths
     assert "/files/{file_id}/rotate" in paths
+    assert "/files/{file_id}/pdf-page" in paths
     assert "/tasks/{task_id}" in paths
     assert "/tasks/{task_id}/stream" in paths
 
@@ -1067,6 +1070,38 @@ def test_file_download_allows_local_dev_origin_on_any_port(tmp_path: Path) -> No
 
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == "http://localhost:58123"
+
+
+def test_pdf_page_preview_route_returns_rotated_png(tmp_path: Path) -> None:
+    fitz = pytest.importorskip("fitz")
+    app = create_app()
+    uploads = UploadService(ToolConfig(work_dir=tmp_path / "work"))
+    source = tmp_path / "score.pdf"
+    with fitz.open() as doc:
+        doc.new_page(width=200, height=400)
+        doc.save(source)
+    file_id = uploads.register(source)
+    app.dependency_overrides[get_file_actions] = lambda: FileActions(uploads=uploads)
+
+    response = TestClient(app).get(
+        f"/files/{file_id}/pdf-page",
+        params={"page_index": 0, "target_width": 320, "rotation": 90},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.headers["x-image-width"] == "320"
+    assert response.headers["x-image-height"] == "160"
+    assert response.content.startswith(b"\x89PNG")
+    assert (
+        TestClient(app)
+        .get(
+            f"/files/{file_id}/pdf-page",
+            params={"page_index": 0, "rotation": 45},
+        )
+        .status_code
+        == 400
+    )
 
 
 def test_files_exist_route_returns_batch_existence(tmp_path: Path) -> None:

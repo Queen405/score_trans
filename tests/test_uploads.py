@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 import score_trans.services.files.upload_service as upload_service_module
 from fastapi import UploadFile
+from PIL import Image
 from score_trans.config.settings import UPLOAD_PDF_DPI
 from score_trans.exec.files.actions import FileActions
 from score_trans.models.settings.config import ToolConfig
@@ -208,6 +209,71 @@ def test_rotate_image_rejects_non_image_files(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="只有图片文件支持旋转"):
         actions.rotate_file(file_id, "right")
+
+
+def test_pdf_page_preview_renders_requested_page_and_rotation(tmp_path: Path) -> None:
+    fitz = pytest.importorskip("fitz")
+    pdf_path = tmp_path / "score.pdf"
+    with fitz.open() as doc:
+        page = doc.new_page(width=200, height=400)
+        page.draw_rect(fitz.Rect(20, 20, 180, 380))
+        doc.save(pdf_path)
+    uploads = UploadService(ToolConfig(work_dir=tmp_path / "work"))
+    file_id = uploads.register(pdf_path)
+    actions = FileActions(uploads)
+
+    content, width, height = actions.render_pdf_page(
+        file_id,
+        page_index=0,
+        target_width=600,
+        rotation=90,
+    )
+
+    with Image.open(BytesIO(content)) as image:
+        assert image.format == "PNG"
+        assert (image.width, image.height) == (width, height)
+    assert width == 600
+    assert height == 300
+
+
+def test_pdf_page_preview_enforces_pixel_budget_after_rounding(
+    tmp_path: Path,
+) -> None:
+    fitz = pytest.importorskip("fitz")
+    pdf_path = tmp_path / "score.pdf"
+    with fitz.open() as doc:
+        doc.new_page(width=595.32, height=841.92)
+        doc.save(pdf_path)
+    uploads = UploadService(ToolConfig(work_dir=tmp_path / "work"))
+    file_id = uploads.register(pdf_path)
+
+    _content, width, height = FileActions(uploads).render_pdf_page(
+        file_id,
+        page_index=0,
+        target_width=16_000,
+        rotation=90,
+    )
+
+    assert width * height <= 24_000_000
+
+
+def test_pdf_page_preview_rejects_invalid_page_and_non_pdf(tmp_path: Path) -> None:
+    fitz = pytest.importorskip("fitz")
+    pdf_path = tmp_path / "score.pdf"
+    with fitz.open() as doc:
+        doc.new_page()
+        doc.save(pdf_path)
+    uploads = UploadService(ToolConfig(work_dir=tmp_path / "work"))
+    pdf_id = uploads.register(pdf_path)
+    png_path = tmp_path / "image.png"
+    Image.new("RGB", (20, 20), "white").save(png_path)
+    png_id = uploads.register(png_path)
+    actions = FileActions(uploads)
+
+    with pytest.raises(ValueError, match="页码超出范围"):
+        actions.render_pdf_page(pdf_id, page_index=1, target_width=600, rotation=0)
+    with pytest.raises(ValueError, match="仅 PDF"):
+        actions.render_pdf_page(png_id, page_index=0, target_width=600, rotation=0)
 
 
 def test_upload_pdf_still_returns_page_pngs(monkeypatch, tmp_path: Path) -> None:

@@ -13,6 +13,7 @@ export interface RecognitionHistoryPageSource {
   sourceDocumentFileId?: string
   sourceDocumentName?: string
   sourcePageIndex?: number
+  sourceRotation?: 0 | 90 | 180 | 270
   musicxmlFileId?: string
   jianpuText?: string
   ocrText?: string
@@ -25,6 +26,7 @@ export interface HistoryPageCreateSnapshot {
   source_document_file_id: string
   source_document_name: string
   source_page_index: number
+  source_rotation: 0 | 90 | 180 | 270
   musicxml_file_id: string
   jianpu_text: string
   ocr_text: string
@@ -56,6 +58,7 @@ export function buildHistoryBatchSnapshot(
       source_document_file_id: page.sourceDocumentFileId ?? '',
       source_document_name: page.sourceDocumentName ?? '',
       source_page_index: page.sourcePageIndex ?? -1,
+      source_rotation: page.sourceRotation ?? 0,
       musicxml_file_id: page.musicxmlFileId ?? '',
       jianpu_text: page.jianpuText ?? '',
       ocr_text: page.ocrText ?? '',

@@ -29,6 +29,9 @@ MEDIA_TYPES: dict[str, str] = {
 
 logger = logging.getLogger(__name__)
 
+_PDF_PREVIEW_MAX_PIXELS = 24_000_000
+_PDF_PREVIEW_MAX_DPI = 600
+
 
 class FileActions:
     def __init__(self, uploads: UploadService | None = None) -> None:
@@ -75,6 +78,61 @@ class FileActions:
         except Exception as exc:
             logger.exception("PDF 页面转换失败: %s", pdf_path)
             raise ValueError("PDF 页面转换失败，请检查文件是否损坏") from exc
+
+    def render_pdf_page(
+        self,
+        file_id: str,
+        *,
+        page_index: int,
+        target_width: int,
+        rotation: int,
+    ) -> tuple[bytes, int, int]:
+        path = self.uploads.get_path(file_id)
+        if not path or not path.exists():
+            raise FileNotFoundError(f"文件不存在：{file_id}")
+        if path.suffix.lower() != ".pdf":
+            raise ValueError("仅 PDF 文件支持按页高清预览")
+        if rotation not in {0, 90, 180, 270}:
+            raise ValueError("PDF 预览旋转角度仅支持 0、90、180、270 度")
+        try:
+            import fitz
+        except ImportError as exc:
+            raise RuntimeError("PDF 页面转换依赖不可用") from exc
+
+        try:
+            with fitz.open(str(path)) as doc:
+                if page_index < 0 or page_index >= len(doc):
+                    raise ValueError(f"PDF 页码超出范围：{page_index + 1}")
+                page = doc.load_page(page_index)
+                page.set_rotation((page.rotation + rotation) % 360)
+                page_width = max(1.0, page.rect.width)
+                page_height = max(1.0, page.rect.height)
+                requested_scale = target_width / page_width
+                pixel_limited_scale = (
+                    _PDF_PREVIEW_MAX_PIXELS / (page_width * page_height)
+                ) ** 0.5
+                scale = max(
+                    0.01,
+                    min(
+                        requested_scale,
+                        pixel_limited_scale,
+                        _PDF_PREVIEW_MAX_DPI / 72.0,
+                    ),
+                )
+                pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
+                if pix.width * pix.height > _PDF_PREVIEW_MAX_PIXELS:
+                    # Pixmap 尺寸取整可能略微越过预算；从 PDF 重新绘制一次，
+                    # 不对已生成的位图做二次重采样。
+                    scale *= (
+                        _PDF_PREVIEW_MAX_PIXELS / (pix.width * pix.height)
+                    ) ** 0.5 * 0.9999
+                    pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
+                return pix.tobytes("png"), pix.width, pix.height
+        except ValueError:
+            raise
+        except Exception as exc:
+            logger.exception("PDF 高清预览失败: %s page=%s", path, page_index)
+            raise ValueError("PDF 页面预览失败，请检查文件是否损坏") from exc
 
     def rotate_file(self, file_id: str, direction: str) -> UploadResponse:
         rotated_id, path = self.uploads.rotate_image(file_id, direction)

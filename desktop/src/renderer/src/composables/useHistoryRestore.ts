@@ -126,6 +126,7 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
         sourceDocumentFileId: page.source_document_file_id ?? '',
         sourceDocumentName: page.source_document_name ?? '',
         sourcePageIndex: page.source_page_index ?? -1,
+        sourceRotation: page.source_rotation ?? 0,
         musicxmlFileId: page.musicxml_file_id,
         jianpuText: split.jianpuText,
         ocrText: page.ocr_text || split.ocrText,
@@ -198,6 +199,7 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
       sourceDocumentFileId: page.source_document_file_id ?? '',
       sourceDocumentName: page.source_document_name ?? '',
       sourcePageIndex: page.source_page_index ?? -1,
+      sourceRotation: page.source_rotation ?? 0,
       historyPageId: page.id,
       historyBatchId: batchId,
       musicxmlFileId: page.musicxml_file_id,
@@ -261,6 +263,7 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
           patch.sourceDocumentFileId = ''
           patch.sourceDocumentName = ''
           patch.sourcePageIndex = -1
+          patch.sourceRotation = 0
         }
         if (page.musicxml_file_id && !exists[page.musicxml_file_id]) {
           patch.musicxmlFileId = ''

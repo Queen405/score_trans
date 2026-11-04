@@ -73,6 +73,15 @@ test('log state is bounded and LogPanel uses its stable entry ids', () => {
   assert.doesNotMatch(logPanelSource, /:key="i"/)
 })
 
+test('PDF preview re-renders without changing the OMR coordinate system', () => {
+  assert.match(originalPreviewSource, /:src="displayFileUrl"/)
+  assert.match(originalPreviewSource, /fetchPdfPageBlob/)
+  assert.match(originalPreviewSource, /PDF_PREVIEW_DEBOUNCE_MS = 180/)
+  assert.match(originalPreviewSource, /pdfPreviewTargetWidth/)
+  assert.match(originalPreviewSource, /逻辑尺寸始终保持 OMR 坐标系/)
+  assert.match(originalPreviewSource, /clearPdfPreviewCache\(\)/)
+})
+
 test('marker candidate maps preserve the native overlay and use contour hit paths', () => {
   assert.match(originalPreviewSource, /\[1, 2, 3\]\.includes\(parsed\.version\)/)
   assert.match(originalPreviewSource, /:class="\{ dimmed: showOverlay && canShowOverlay \}"/)

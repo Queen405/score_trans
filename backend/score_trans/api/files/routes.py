@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from fastapi import APIRouter, Depends, UploadFile
+from fastapi import APIRouter, Depends, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 
 from ..dependencies import get_file_actions
@@ -31,6 +31,32 @@ async def files_exist(
     actions: FileActions = Depends(get_file_actions),
 ):
     return await asyncio.to_thread(actions.files_exist, req.file_ids)
+
+
+@router.get("/{file_id}/pdf-page")
+async def preview_pdf_page(
+    file_id: str,
+    page_index: int = Query(ge=0),
+    target_width: int = Query(default=1200, ge=64, le=16384),
+    rotation: int = 0,
+    actions: FileActions = Depends(get_file_actions),
+):
+    content, width, height = await asyncio.to_thread(
+        actions.render_pdf_page,
+        file_id,
+        page_index=page_index,
+        target_width=target_width,
+        rotation=rotation,
+    )
+    return Response(
+        content,
+        media_type="image/png",
+        headers={
+            "Cache-Control": "private, no-store",
+            "X-Image-Width": str(width),
+            "X-Image-Height": str(height),
+        },
+    )
 
 
 @router.post("/{file_id}/rotate", response_model=UploadResponse)

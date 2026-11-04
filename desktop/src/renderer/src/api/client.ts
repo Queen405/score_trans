@@ -215,6 +215,33 @@ export function getFileURL(fileId: string): string {
   return `${getBaseURL()}/files/${fileId}`
 }
 
+export async function fetchPdfPageBlob(
+  fileId: string,
+  options: {
+    pageIndex: number
+    targetWidth: number
+    rotation: 0 | 90 | 180 | 270
+  },
+  signal?: AbortSignal,
+): Promise<ApiResult<Blob>> {
+  const query = new URLSearchParams({
+    page_index: String(options.pageIndex),
+    target_width: String(options.targetWidth),
+    rotation: String(options.rotation),
+  })
+  const url = `${getFileURL(fileId)}/pdf-page?${query.toString()}`
+  try {
+    const response = await authenticatedFetch(url, { signal })
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>))
+      return apiFailure(apiErrorFromResponse(response.status, payload))
+    }
+    return apiSuccess(await response.blob())
+  } catch (error) {
+    return apiFailure(error)
+  }
+}
+
 export async function fetchFileBlob(
   fileId: string,
   signal?: AbortSignal,

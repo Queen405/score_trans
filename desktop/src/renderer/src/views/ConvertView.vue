@@ -293,6 +293,10 @@
             <original-preview
               :file-id="store.originalFileId"
               :file-name="store.originalFileName"
+              :source-document-file-id="store.currentPage?.sourceDocumentFileId ?? ''"
+              :source-document-name="store.currentPage?.sourceDocumentName ?? ''"
+              :source-page-index="store.currentPage?.sourcePageIndex ?? -1"
+              :source-rotation="store.currentPage?.sourceRotation ?? 0"
               :overlay-file-id="store.overlayFileId"
               :source-map-file-id="store.sourceMapFileId"
               :clickable-source-ids="clickableSourceIds"
@@ -1461,6 +1465,7 @@ async function handleRestorePage(page: HistoryPage): Promise<void> {
       sourceDocumentFileId: r.page.source_document_file_id ?? '',
       sourceDocumentName: r.page.source_document_name ?? '',
       sourcePageIndex: r.page.source_page_index ?? -1,
+      sourceRotation: r.page.source_rotation ?? 0,
       historyPageId: r.page.id,
       historyBatchId: batchId,
       musicxmlFileId: r.page.musicxml_file_id,

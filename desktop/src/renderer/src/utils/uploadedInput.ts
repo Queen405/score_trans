@@ -13,6 +13,7 @@ export function uploadedInputPages(result: UploadResponse): UploadedInputPage[] 
       inputFileName: page.filename,
       ...sourceDocument,
       sourcePageIndex: page.page_index,
+      sourceRotation: 0,
     }))
   }
   return [{
@@ -21,5 +22,6 @@ export function uploadedInputPages(result: UploadResponse): UploadedInputPage[] 
     sourceDocumentFileId: '',
     sourceDocumentName: '',
     sourcePageIndex: -1,
+    sourceRotation: 0,
   }]
 }
