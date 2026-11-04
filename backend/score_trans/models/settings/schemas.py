@@ -38,6 +38,7 @@ from score_trans.models.render.layout import (
     MAX_SYSTEM_GAP_PERCENT,
     MIN_BEAT_GAP_PERCENT,
     MIN_CONTENT_SCALE_PERCENT,
+    MIN_PART_GAP_PERCENT,
     MIN_SHORT_NOTE_GAP_PERCENT,
     MIN_SYSTEM_GAP_PERCENT,
 )
@@ -161,7 +162,9 @@ class SettingsUpdateRequest(BaseModel):
     jianpu_lyric_size_percent: int | None = Field(default=None, ge=60, le=150)
     jianpu_title_size_percent: int | None = Field(default=None, ge=60, le=160)
     jianpu_annotation_size_percent: int | None = Field(default=None, ge=60, le=150)
-    jianpu_part_gap_percent: int | None = Field(default=None, ge=50, le=200)
+    jianpu_part_gap_percent: int | None = Field(
+        default=None, ge=MIN_PART_GAP_PERCENT, le=200
+    )
     jianpu_voice_gap_percent: int | None = Field(default=None, ge=50, le=200)
     jianpu_lyric_line_gap_percent: int | None = Field(default=None, ge=50, le=200)
     jianpu_lyric_note_gap_percent: int | None = Field(default=None, ge=50, le=200)

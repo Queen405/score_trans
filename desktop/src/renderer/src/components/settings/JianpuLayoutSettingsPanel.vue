@@ -299,13 +299,13 @@
           <div class="sv-layout-control">
             <n-slider
               v-model:value="settings.draft.jianpuPartGapPercent"
-              :min="50"
+              :min="0"
               :max="200"
               :step="1"
             />
             <n-input-number
               v-model:value="settings.draft.jianpuPartGapPercent"
-              :min="50"
+              :min="0"
               :max="200"
               :step="1"
               size="small"

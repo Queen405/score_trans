@@ -1475,11 +1475,16 @@ def _shared_cell_positions(
         if duration > 0:
             clip_left = x + style.barline_gutter
             clip_right = x + width - style.barline_gutter
-            return {
-                start: clip_left
-                + (clip_right - clip_left) * max(0.0, min(1.0, float(start / duration)))
-                for start in union
-            }
+            shared_events = [event for _measure, events in per_part for event in events]
+            shared_measure = Measure("shared", duration=duration, events=shared_events)
+            positions = _fixed_time_positions(
+                shared_events, clip_left, clip_right, shared_measure, style
+            )
+            if positions is not None:
+                return {
+                    event.start or Fraction(0): position
+                    for event, position in zip(shared_events, positions, strict=True)
+                }
     clip_left = x + style.barline_gutter
     clip_right = x + width - style.barline_gutter
     part_maps: list[dict[Fraction, float]] = []
@@ -2737,6 +2742,138 @@ def _event_x(
     return left + (right - left) * ((position + 0.5) / max(1, count))
 
 
+def _full_measure_unit_positions(
+    events: list[Event],
+    left: float,
+    right: float,
+    measure: Measure,
+    style: PublicationStyle,
+) -> list[float] | None:
+    """Center one complete optical unit, including split extension-line runs."""
+
+    groups: list[list[Event]] = []
+    current: list[Event] = []
+    for event in events:
+        if event.kind != "extension" or not current:
+            current = []
+            groups.append(current)
+        current.append(event)
+
+    def is_full_unit(group: list[Event]) -> bool:
+        start = group[0].start or Fraction(0)
+        end = max((event.start or Fraction(0)) + event.duration for event in group)
+        return (
+            start == 0
+            and end >= measure.duration
+            and (
+                len(group) == 1 or all(event.kind == "extension" for event in group[1:])
+            )
+        )
+
+    generated_rest_run = all(
+        event.kind == "rest" and event.generated for event in events
+    )
+    if not generated_rest_run and not all(is_full_unit(group) for group in groups):
+        return None
+    if generated_rest_run and (
+        min(event.start or Fraction(0) for event in events) != 0
+        or max((event.start or Fraction(0)) + event.duration for event in events)
+        < measure.duration
+    ):
+        return None
+
+    positions = [
+        left + (right - left) * float((event.start or Fraction(0)) / measure.duration)
+        for event in events
+    ]
+    boxes = [
+        _event_visual_extents(
+            replace(event, lyric=None, lyrics={}, dynamic=None), style
+        )
+        for event in events
+    ]
+    ink_left = min(
+        position + box[0] for position, box in zip(positions, boxes, strict=True)
+    )
+    ink_right = max(
+        position + box[1] for position, box in zip(positions, boxes, strict=True)
+    )
+    shift = (left + right - ink_left - ink_right) / 2
+    return [position + shift for position in positions]
+
+
+def _fixed_time_positions(
+    events: list[Event],
+    left: float,
+    right: float,
+    measure: Measure,
+    style: PublicationStyle,
+) -> list[float] | None:
+    """Justify a complete fixed-layout measure without moving shared onsets apart."""
+
+    if not events or measure.duration <= 0:
+        return None
+    if any(event.start is None for event in events):
+        return None
+    centered = _full_measure_unit_positions(events, left, right, measure, style)
+    if centered is not None:
+        return centered
+
+    effective_duration = max(
+        measure.duration,
+        max((event.start or Fraction(0)) + event.duration for event in events),
+    )
+    # Underfull input keeps its nominal time positions; full-width justification
+    # would make a rhythm error look like intentional spacing.
+    if (
+        max((event.start or Fraction(0)) + event.duration for event in events)
+        < measure.duration
+    ):
+        return [
+            left
+            + (right - left) * float((event.start or Fraction(0)) / measure.duration)
+            for event in events
+        ]
+
+    # Group simultaneous events first. Their combined optical extent is used by
+    # every part that reads the shared onset map.
+    onsets = sorted({event.start or Fraction(0) for event in events})
+    extents: list[tuple[float, float]] = []
+    for onset in onsets:
+        boxes = [
+            _event_visual_extents(
+                replace(event, lyric=None, lyrics={}, dynamic=None), style
+            )
+            for event in events
+            if (event.start or Fraction(0)) == onset
+        ]
+        extents.append((min(box[0] for box in boxes), max(box[1] for box in boxes)))
+
+    # The first and last note get a small optical clearance inside the content
+    # bounds. Lyrics are deliberately excluded so they cannot move time anchors.
+    first_clearance = style.event_clearance - extents[0][0]
+    last_clearance = style.event_clearance + extents[-1][1]
+    base_gaps = [
+        max(
+            0.0,
+            extents[index - 1][1] - extents[index][0] + style.event_clearance,
+        )
+        for index in range(1, len(onsets))
+    ]
+    base_width = first_clearance + sum(base_gaps) + last_clearance
+    spare = max(0.0, right - left - base_width)
+
+    # The tail's proportional share intentionally remains after the last event;
+    # distributing every interval to an event would incorrectly flush it right.
+    positions = [left + first_clearance + spare * float(onsets[0] / effective_duration)]
+    for index, gap in enumerate(base_gaps):
+        interval = float((onsets[index + 1] - onsets[index]) / effective_duration)
+        positions.append(positions[-1] + gap + spare * interval)
+
+    by_onset = dict(zip(onsets, positions, strict=True))
+    return [by_onset[event.start or Fraction(0)] for event in events]
+
+
 def _event_positions(
     events: list[Event],
     left: float,
@@ -2750,12 +2887,10 @@ def _event_positions(
     ]
     if not ideal_positions:
         return ideal_positions
-    if (
-        style.measures_per_system
-        and measure.duration > 0
-        and all(event.start is not None for event in events)
-    ):
-        return ideal_positions
+    if style.measures_per_system:
+        fixed_positions = _fixed_time_positions(events, left, right, measure, style)
+        if fixed_positions is not None:
+            return fixed_positions
 
     extents = _measure_event_visual_extents(events, measure, style)
     # No beat_boundaries here on purpose: the visible beat division is produced

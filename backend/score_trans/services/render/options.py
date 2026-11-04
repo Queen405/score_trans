@@ -38,6 +38,7 @@ from score_trans.models.render.layout import (
     MAX_SYSTEM_GAP_PERCENT,
     MIN_BEAT_GAP_PERCENT,
     MIN_CONTENT_SCALE_PERCENT,
+    MIN_PART_GAP_PERCENT,
     MIN_PAGE_MM,
     MIN_NOTE_SIZE_PERCENT,
     MIN_LYRIC_SIZE_PERCENT,
@@ -188,9 +189,14 @@ class A4LayoutOptions:
             value = getattr(self, field)
             if isinstance(value, bool) or not isinstance(value, int):
                 raise TypeError(f"{field} must be an integer")
-            if not MIN_VERTICAL_GAP_PERCENT <= value <= MAX_VERTICAL_GAP_PERCENT:
+            minimum = (
+                MIN_PART_GAP_PERCENT
+                if field == "part_gap_percent"
+                else MIN_VERTICAL_GAP_PERCENT
+            )
+            if not minimum <= value <= MAX_VERTICAL_GAP_PERCENT:
                 raise ValueError(
-                    f"{field} must be between {MIN_VERTICAL_GAP_PERCENT} and {MAX_VERTICAL_GAP_PERCENT}"
+                    f"{field} must be between {minimum} and {MAX_VERTICAL_GAP_PERCENT}"
                 )
         for field, value, minimum, maximum in ranges:
             if isinstance(value, bool) or not isinstance(value, int):

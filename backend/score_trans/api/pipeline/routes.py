@@ -132,7 +132,7 @@ async def run_pipeline(
     jianpu_lyric_size_percent: int = Form(100, ge=60, le=150),
     jianpu_title_size_percent: int = Form(100, ge=60, le=160),
     jianpu_annotation_size_percent: int = Form(100, ge=60, le=150),
-    jianpu_part_gap_percent: int = Form(100, ge=50, le=200),
+    jianpu_part_gap_percent: int = Form(100, ge=0, le=200),
     jianpu_voice_gap_percent: int = Form(100, ge=50, le=200),
     jianpu_lyric_line_gap_percent: int = Form(100, ge=50, le=200),
     jianpu_lyric_note_gap_percent: int = Form(100, ge=50, le=200),

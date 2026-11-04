@@ -658,12 +658,14 @@ def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:
             "jianpu_system_gap_percent": 20,
             "jianpu_short_note_gap_percent": 180,
             "jianpu_beat_gap_percent": 0,
+            "jianpu_part_gap_percent": 0,
         },
     )
     assert boundaries.status_code == 200
     assert boundaries.json()["jianpu_system_gap_percent"] == 20
     assert boundaries.json()["jianpu_short_note_gap_percent"] == 180
     assert boundaries.json()["jianpu_beat_gap_percent"] == 0
+    assert boundaries.json()["jianpu_part_gap_percent"] == 0
 
     for invalid in (1, 2, 6, "4", True):
         assert (
@@ -721,6 +723,7 @@ def test_all_a4_request_contracts_expose_layout_controls() -> None:
         assert properties["jianpu_title_size_percent"]["default"] == 100
         assert properties["jianpu_annotation_size_percent"]["default"] == 100
         assert properties["jianpu_part_gap_percent"]["default"] == 100
+        assert properties["jianpu_part_gap_percent"]["minimum"] == 0
         assert properties["jianpu_voice_gap_percent"]["default"] == 100
         assert properties["jianpu_lyric_line_gap_percent"]["default"] == 100
         assert properties["jianpu_lyric_note_gap_percent"]["default"] == 100

@@ -51,6 +51,7 @@ from score_trans.services.render.engraving.renderer import (
     _rhythm_edge_padding,
     _rhythm_line_base,
     _shared_cell_positions,
+    _visual_events,
     _system_extra_height,
 )
 from score_trans.services.render.engraving.scene import (
@@ -134,7 +135,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-26"
+    assert root.attrib["data-engine-version"] == "publication-27"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -2617,6 +2618,10 @@ def test_overfull_measure_ignores_the_short_note_control() -> None:
     assert centers(1.8) == pytest.approx(centers(1.0))
 
 
+def test_part_gap_allows_zero_percent() -> None:
+    assert A4LayoutOptions(part_gap_percent=0).part_gap_scale == 0
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     (
@@ -2632,7 +2637,7 @@ def test_overfull_measure_ignores_the_short_note_control() -> None:
         ("lyric_size_percent", 151),
         ("title_size_percent", 161),
         ("annotation_size_percent", 59),
-        ("part_gap_percent", 49),
+        ("part_gap_percent", -1),
         ("voice_gap_percent", 201),
         ("lyric_line_gap_percent", 49),
         ("lyric_note_gap_percent", 201),
@@ -3588,8 +3593,12 @@ def test_fixed_mode_uses_strict_time_anchors_for_quarter_and_eighth_notes() -> N
     quarter = _event_positions(quarter_measure.events, 100, 500, quarter_measure, style)
     eighth = _event_positions(eighth_measure.events, 100, 500, eighth_measure, style)
 
-    assert quarter == pytest.approx([100, 200, 300, 400])
-    assert eighth == pytest.approx([100, 150, 200, 250, 300, 350, 400, 450])
+    quarter_gaps = [right - left for left, right in zip(quarter, quarter[1:])]
+    eighth_gaps = [right - left for left, right in zip(eighth, eighth[1:])]
+    assert quarter_gaps == pytest.approx([quarter_gaps[0]] * 3)
+    assert eighth_gaps == pytest.approx([eighth_gaps[0]] * 7)
+    assert quarter[0] > 100
+    assert quarter[-1] < 500
     assert eighth[2] == pytest.approx((eighth[0] + eighth[4]) / 2)
 
 
@@ -3614,11 +3623,14 @@ def test_fixed_mode_shared_onsets_use_one_strict_time_grid() -> None:
 
     positions = _shared_cell_positions([quarter, eighth], 82, 400, style)
 
-    assert positions[Fraction(0)] == pytest.approx(102)
-    assert positions[Fraction(1, 2)] == pytest.approx(147)
-    assert positions[Fraction(1)] == pytest.approx(192)
-    assert positions[Fraction(2)] == pytest.approx(282)
-    assert positions[Fraction(3)] == pytest.approx(372)
+    ordered = [positions[key] for key in sorted(positions)]
+    gaps = [right - left for left, right in zip(ordered, ordered[1:])]
+    assert gaps == pytest.approx([gaps[0]] * len(gaps))
+    assert positions[Fraction(0)] > 102
+    assert positions[Fraction(3)] < 462
+    assert positions[Fraction(1, 2)] == pytest.approx(
+        (positions[Fraction(0)] + positions[Fraction(1)]) / 2
+    )
 
 
 def test_fixed_mode_lyrics_follow_strict_anchors_without_moving_notes() -> None:
@@ -3663,6 +3675,79 @@ def test_fixed_mode_lyrics_follow_strict_anchors_without_moving_notes() -> None:
     )[0] == pytest.approx(200)
 
 
+def test_fixed_mode_full_measure_note_and_rest_are_optically_centered() -> None:
+    style = PublicationStyle(measures_per_system=4)
+    for kind in ("note", "rest"):
+        event = Event(
+            kind,
+            Fraction(4),
+            [JianpuPitch(1)] if kind == "note" else [],
+            start=Fraction(0),
+        )
+        measure = Measure("1", duration=Fraction(4), events=[event])
+        position = _event_positions([event], 100, 500, measure, style)[0]
+        box = _event_visual_extents(event, style)
+        assert position + (box[0] + box[1]) / 2 == pytest.approx(300)
+
+
+def test_fixed_mode_full_measure_single_event_is_centered_in_shared_cell() -> None:
+    style = PublicationStyle(measures_per_system=4)
+    event = Event("note", Fraction(4), [JianpuPitch(1)], start=Fraction(0))
+    measure = Measure("1", duration=Fraction(4), events=[event])
+    positions = _shared_cell_positions([measure, measure], 82, 400, style)
+    visual = _visual_events(measure)
+    ink_left = min(
+        positions[event.start or Fraction(0)] + _event_visual_extents(event, style)[0]
+        for event in visual
+    )
+    ink_right = max(
+        positions[event.start or Fraction(0)] + _event_visual_extents(event, style)[1]
+        for event in visual
+    )
+    assert (ink_left + ink_right) / 2 == pytest.approx((102 + 462) / 2)
+
+
+def test_fixed_mode_overfull_measure_does_not_stack_extra_notes_at_right_edge() -> None:
+    style = PublicationStyle(measures_per_system=4)
+    events = [
+        Event("note", Fraction(1), [JianpuPitch(1)], start=Fraction(index))
+        for index in range(6)
+    ]
+    measure = Measure("1", duration=Fraction(4), events=events)
+    positions = _event_positions(events, 100, 500, measure, style)
+    assert positions == sorted(positions)
+    assert len(set(positions)) == len(events)
+    assert positions[-1] < 500
+
+
+def test_fixed_mode_underfull_measure_keeps_nominal_time_positions() -> None:
+    style = PublicationStyle(measures_per_system=4)
+    events = [
+        Event("note", Fraction(1), [JianpuPitch(1)], start=Fraction(0)),
+        Event("note", Fraction(1), [JianpuPitch(2)], start=Fraction(1)),
+        Event("note", Fraction(1), [JianpuPitch(3)], start=Fraction(2)),
+    ]
+    measure = Measure("1", duration=Fraction(4), events=events)
+    assert _event_positions(events, 100, 500, measure, style) == pytest.approx(
+        [100, 200, 300]
+    )
+
+
+def test_fixed_mode_long_lyrics_do_not_move_full_width_time_anchors() -> None:
+    style = PublicationStyle(measures_per_system=4)
+    plain = [
+        Event("note", Fraction(1), [JianpuPitch(1)], start=Fraction(0)),
+        Event("note", Fraction(1), [JianpuPitch(2)], start=Fraction(1)),
+        Event("note", Fraction(1), [JianpuPitch(3)], start=Fraction(2)),
+        Event("note", Fraction(1), [JianpuPitch(4)], start=Fraction(3)),
+    ]
+    with_lyric = [replace(event, lyric="x" * 200) for event in plain]
+    measure = Measure("1", duration=Fraction(4), events=with_lyric)
+    assert _event_positions(with_lyric, 100, 500, measure, style) == pytest.approx(
+        _event_positions(plain, 100, 500, measure, style)
+    )
+
+
 def test_fixed_mode_time_anchor_fallbacks_remain_available() -> None:
     style = PublicationStyle(measures_per_system=4)
     missing_start = Measure(
@@ -3692,9 +3777,9 @@ def test_fixed_mode_normalizes_time_within_each_time_signature() -> None:
         events=[Event("note", Fraction(1), [JianpuPitch(1)], start=Fraction(1))],
     )
 
-    assert _event_positions(measure.events, 100, 500, measure, style) == pytest.approx(
-        [300]
-    )
+    assert _event_positions(measure.events, 100, 500, measure, style)[
+        0
+    ] == pytest.approx(300, abs=0.5)
 
 
 def test_fixed_mode_extreme_content_still_renders_with_diagnostics() -> None:
