@@ -51,3 +51,13 @@ test('page fit uses the full page and rejects empty measurements', () => {
   )
   assert.equal(calculateZoomFit({ x: 0, y: 0, width: 0, height: 10 }, 100, 100), null)
 })
+
+test('page fit uses displayed dimensions for high-resolution PDF bitmaps', () => {
+  assert.match(zoomPanSource, /contentW = img\.clientWidth \|\| img\.naturalWidth/)
+  assert.match(zoomPanSource, /contentH = img\.clientHeight \|\| img\.naturalHeight/)
+
+  // The PDF bitmap may be 850 px wide while its OMR-aligned element is 1700 px.
+  // Fitting an 800 px viewport must use 1700 px and produce scale 0.5, not 1.
+  const result = calculateZoomFit({ x: 0, y: 0, width: 1700, height: 1000 }, 800, 800)
+  assert.equal(result.scale, 800 / 1700)
+})

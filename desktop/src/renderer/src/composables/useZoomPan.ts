@@ -40,8 +40,10 @@ export function useZoomPan(container: Ref<HTMLElement | undefined>) {
     contentPadding = 0
     const img = el.querySelector<HTMLImageElement>('.zp-inner img')
     if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
-      contentW = img.naturalWidth
-      contentH = img.naturalHeight
+      // Enhanced PDF previews can have a high-resolution bitmap inside the
+      // original OMR-sized element. Fit the displayed page, not the bitmap.
+      contentW = img.clientWidth || img.naturalWidth
+      contentH = img.clientHeight || img.naturalHeight
       return true
     }
     const iframe = el.querySelector<HTMLIFrameElement>('.zp-inner iframe')
