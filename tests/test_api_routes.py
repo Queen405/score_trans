@@ -462,7 +462,7 @@ def test_settings_persists_show_measure_numbers(tmp_path: Path) -> None:
     response = client.get("/settings")
     assert response.status_code == 200
     assert response.json()["show_measure_numbers"] is True
-    assert response.json()["measure_number_mode"] == "all"
+    assert response.json()["measure_number_mode"] == "row_start"
 
     response = client.put(
         "/settings", json={"measure_number_mode": "row_start", "target_key": "F#"}

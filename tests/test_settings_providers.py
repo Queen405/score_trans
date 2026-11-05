@@ -397,7 +397,7 @@ def test_settings_defaults_seeds_baseline_values() -> None:
     assert defaults["target_key"] == "auto"
     assert defaults["accidental_mode"] == "auto"
     assert defaults["polyphony_mode"] == "auto"
-    assert defaults["measure_number_mode"] == "all"
+    assert defaults["measure_number_mode"] == "row_start"
     assert defaults["show_measure_numbers"] == "1"
     assert defaults["jianpu_syntax_highlight"] == "1"
     assert defaults["jianpu_measure_duration_check"] == "1"
@@ -573,7 +573,7 @@ def test_baseline_does_not_overwrite_existing_user_values(tmp_path) -> None:
 def test_show_measure_numbers_and_mode_stay_consistent(tmp_path) -> None:
     dao = SettingsDao(tmp_path / "settings.db", defaults=settings_defaults())
     assert dao.get("show_measure_numbers") == "1"
-    assert dao.get("measure_number_mode") == "all"
+    assert dao.get("measure_number_mode") == "row_start"
 
 
 def test_empty_seeded_paths_trigger_auto_resolution(tmp_path) -> None:

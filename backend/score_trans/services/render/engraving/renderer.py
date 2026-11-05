@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from collections import Counter
 from dataclasses import dataclass, field, replace
 from fractions import Fraction
@@ -379,6 +380,7 @@ class PublicationRenderer:
                     show_measure_numbers=show_measure_numbers,
                     measure_number_mode=measure_number_mode,
                     first_system_on_page=system_index == 0,
+                    show_part_names=page_index == 0 and system_index == 0,
                     spanners=document_spanners,
                     ending_spans=ending_spans_by_part,
                     playback_groups=playback_groups,
@@ -462,6 +464,7 @@ class PublicationRenderer:
         show_measure_numbers: bool,
         measure_number_mode: MeasureNumberMode,
         first_system_on_page: bool,
+        show_part_names: bool,
         spanners: list[_OpenSpanners],
         ending_spans: list[list[EndingSpan]] | None = None,
         playback_groups: dict[int, dict[Fraction, int]] | None = None,
@@ -498,6 +501,20 @@ class PublicationRenderer:
         for cell_index, (cell, width) in enumerate(
             zip(system.cells, system.widths, strict=True)
         ):
+            present = [measure for measure in cell.measures if measure is not None]
+            share_barlines = part_count > 1 and all(
+                not measure.repeat_start and not measure.repeat_end
+                for measure in present
+            )
+            if share_barlines:
+                _draw_barline(
+                    scene,
+                    x,
+                    y + system.parts[0].bar_top,
+                    y + system.parts[-1].bar_bottom,
+                    style,
+                    kind="normal",
+                )
             shared_positions = _shared_cell_positions(
                 cell.measures, x, width, style, common_shortest=common_shortest
             )
@@ -509,9 +526,22 @@ class PublicationRenderer:
                     else None
                 )
                 staff_y = y + system.parts[part_index].offset
-                if cell_index == 0 and part_count > 1:
+                if show_part_names and cell_index == 0 and part_count > 1:
                     part_name = _part_name(parts, part_index)
+                    part_name = re.sub(
+                        r"\(staff\s*(\d+)\)", r" \1", part_name, flags=re.I
+                    )
+                    available = max(20.0, x - 20.0)
+                    while (
+                        part_name
+                        and font_registry().measure(
+                            part_name, style.part_name_size, 500
+                        )
+                        > available
+                    ):
+                        part_name = part_name[:-1]
                     if part_name:
+                        part_name = part_name.rstrip()
                         scene.add(
                             _text(
                                 "part-name",
@@ -534,9 +564,13 @@ class PublicationRenderer:
                         )
                     )
                     continue
-                draw_number = show_measure_numbers and (
-                    measure_number_mode == "all"
-                    or (measure_number_mode == "row_start" and cell_index == 0)
+                draw_number = (
+                    part_index == 0
+                    and show_measure_numbers
+                    and (
+                        measure_number_mode == "all"
+                        or (measure_number_mode == "row_start" and cell_index == 0)
+                    )
                 )
                 note_index = self._draw_measure(
                     scene,
@@ -568,6 +602,18 @@ class PublicationRenderer:
                     part_index=part_index,
                     part_layout=system.parts[part_index],
                     common_shortest=common_shortest,
+                    share_barlines=share_barlines,
+                )
+            if share_barlines:
+                _draw_barline(
+                    scene,
+                    x + width,
+                    y + system.parts[0].bar_top,
+                    y + system.parts[-1].bar_bottom,
+                    style,
+                    kind=(
+                        "terminal" if cell_index == len(system.cells) - 1 else "normal"
+                    ),
                 )
             x += width
         for part_index, open_state in enumerate(spanners):
@@ -690,6 +736,7 @@ class PublicationRenderer:
         part_index: int = 0,
         part_layout: _PartLayout | None = None,
         common_shortest: Fraction | None = None,
+        share_barlines: bool = False,
     ) -> int:
         visual_events = _visual_events(measure)
         lane_groups = _measure_render_lanes(visual_events)
@@ -701,7 +748,7 @@ class PublicationRenderer:
         bar_top, bar_bottom = _measure_bar_offsets(measure, style)
         if part_layout is not None:
             bar_top, bar_bottom = part_layout.bar_top, part_layout.bar_bottom
-        if draw_start_bar or measure.repeat_start:
+        if (draw_start_bar and not share_barlines) or measure.repeat_start:
             _draw_barline(
                 scene,
                 x,
@@ -945,6 +992,8 @@ class PublicationRenderer:
                     "repeat-dot", x + width - 12, y + repeat_center + 7, 2.3, fill=True
                 )
             )
+        if share_barlines and not measure.repeat_end:
+            return note_index
         _draw_barline(
             scene,
             x + width,
@@ -2770,6 +2819,16 @@ def _page_chrome(
                 style.margin_top + 78,
                 meta,
                 style.meta_size,
+            )
+        )
+    if page_index > 0 and show_title and title:
+        scene.add(
+            _text(
+                "continuation-title",
+                style.margin_left,
+                style.margin_top + 12,
+                title,
+                style.annotation_size,
             )
         )
     if show_page_number:

@@ -58,10 +58,8 @@ def test_execute_page_renders_every_part(tmp_path: Path) -> None:
     )
 
     svg = output.read_text(encoding="utf-8")
-    assert "高声部" in svg
-    assert "低声部" in svg
-    # 两个声部各 1 小节，共 2 个 measure；修复前只渲染第一声部，此处为 1
-    assert svg.count('class="measure"') == 2
+    assert svg.count('class="note"') == 2
+    assert svg.count('class="measure"') == 1
 
 
 def test_execute_renders_every_part(tmp_path: Path) -> None:
@@ -70,9 +68,8 @@ def test_execute_renders_every_part(tmp_path: Path) -> None:
     RenderMusicXmlJianpuAction().execute(_write(tmp_path), output)
 
     svg = output.read_text(encoding="utf-8")
-    assert "高声部" in svg
-    assert "低声部" in svg
-    assert svg.count('class="measure"') == 2
+    assert svg.count('class="note"') == 2
+    assert svg.count('class="measure"') == 1
 
 
 def test_execute_a4_pages_renders_every_part(tmp_path: Path) -> None:

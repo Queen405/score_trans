@@ -139,7 +139,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const accidentalMode = ref<AccidentalMode>('auto')
   const polyphonyMode = ref<PolyphonyMode>('auto')
   const showMeasureNumbers = ref(true)
-  const measureNumberMode = ref<MeasureNumberMode>('all')
+  const measureNumberMode = ref<MeasureNumberMode>('row_start')
   const jianpuSyntaxHighlight = ref(true)
   const jianpuMeasureDurationCheck = ref(true)
   const jianpuContentScalePercent = ref(80)
@@ -213,7 +213,7 @@ export const useSettingsStore = defineStore('settings', () => {
     targetKey: 'auto',
     accidentalMode: 'auto',
     polyphonyMode: 'auto',
-    measureNumberMode: 'all',
+    measureNumberMode: 'row_start',
     jianpuSyntaxHighlight: true,
     jianpuMeasureDurationCheck: true,
     jianpuContentScalePercent: 80,
@@ -607,7 +607,7 @@ export const useSettingsStore = defineStore('settings', () => {
     accidentalMode.value = data.accidental_mode ?? 'auto'
     polyphonyMode.value = data.polyphony_mode ?? 'auto'
     measureNumberMode.value =
-      data.measure_number_mode ?? (data.show_measure_numbers === false ? 'none' : 'all')
+      data.measure_number_mode ?? (data.show_measure_numbers === false ? 'none' : 'row_start')
     showMeasureNumbers.value = measureNumberMode.value !== 'none'
     jianpuSyntaxHighlight.value = data.jianpu_syntax_highlight ?? true
     jianpuMeasureDurationCheck.value = data.jianpu_measure_duration_check ?? true

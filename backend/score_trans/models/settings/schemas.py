@@ -69,7 +69,7 @@ class SettingsResponse(BaseModel):
     accidental_mode: AccidentalMode = "auto"
     polyphony_mode: PolyphonyMode = "auto"
     show_measure_numbers: bool = True
-    measure_number_mode: MeasureNumberMode = "all"
+    measure_number_mode: MeasureNumberMode = "row_start"
     jianpu_syntax_highlight: bool = True
     jianpu_measure_duration_check: bool = True
     jianpu_auto_transpose: bool = True

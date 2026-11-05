@@ -8,7 +8,7 @@
         "audiveris_min_image_edge": "2500",
         "target_key": "auto",
         "accidental_mode": "auto",
-        "measure_number_mode": "all",
+        "measure_number_mode": "row_start",
         "show_measure_numbers": "1",
         "jianpu_syntax_highlight": "1",
         "jianpu_measure_duration_check": "1",

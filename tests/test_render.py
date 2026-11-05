@@ -2242,7 +2242,8 @@ def test_multi_part_system_contains_all_parts_and_aligned_bars() -> None:
     assert len(pages) == 1
     assert "高声部" in pages[0].svg
     assert "低声部" in pages[0].svg
-    assert pages[0].svg.count('class="measure"') >= 4
+    # Two cells have shared start/middle/final barlines across both parts.
+    assert pages[0].svg.count('class="measure"') == 3
 
 
 def test_page_number_offset_is_applied_to_rendered_pages() -> None:
@@ -3118,7 +3119,6 @@ def test_lyrics_align_with_quarter_note_positions() -> None:
     layouts = _measure_text_layout(measure, x, width, 0.0, style)
 
     assert [layout.text for layout in layouts] == ["春", "眠", "觉", "晓"]
-    registry = font_registry()
     for layout, position in zip(layouts, positions, strict=True):
         center = layout.bbox.x + layout.bbox.width / 2
         assert abs(center - position) < 1.0
@@ -3183,7 +3183,6 @@ def test_edge_lyrics_align_with_eighth_notes_at_measure_edges() -> None:
     layouts = _measure_text_layout(measure, x, width, 0.0, style)
 
     assert [layout.text for layout in layouts] == ["春", "眠", "觉", "晓", "夜", "雨"]
-    registry = font_registry()
     first_center = layouts[0].bbox.x + layouts[0].bbox.width / 2
     last_center = layouts[-1].bbox.x + layouts[-1].bbox.width / 2
     assert abs(first_center - positions[0]) < 1.0
@@ -3268,7 +3267,6 @@ def test_measure_text_layout_falls_back_without_visual_events() -> None:
     layouts = _measure_text_layout(measure, 0.0, 440.0, 0.0, style)
 
     assert [layout.text for layout in layouts] == ["词"]
-    registry = font_registry()
     assert layouts[0].bbox.x + layouts[0].bbox.width / 2 == pytest.approx(
         style.barline_gutter
     )
