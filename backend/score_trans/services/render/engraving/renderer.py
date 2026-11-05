@@ -50,6 +50,7 @@ from .geometry import (
     _rhythm_line_count,
     mark_layouts,
     measure_event_ink,
+    lyric_text_box,
     pitch_layouts,
 )
 from .mark_graphics import build_mark_graphic
@@ -1098,18 +1099,18 @@ def _draw_barline(
     kind: Literal["normal", "terminal", "repeat-start", "repeat-end"],
 ) -> None:
     if kind == "normal":
-        scene.add(_line("measure", x, top, x, bottom, style.stroke_width))
+        scene.add(_line("measure", x, top, x, bottom, 1.5))
         return
     if kind == "terminal":
-        scene.add(_line("measure terminal-barline", x - 6, top, x - 6, bottom, 1.4))
-        scene.add(_line("measure terminal-barline", x, top, x, bottom, 4.2))
+        scene.add(_line("measure terminal-barline", x - 6, top, x - 6, bottom, 1.5))
+        scene.add(_line("measure terminal-barline", x, top, x, bottom, 4.5))
         return
     if kind == "repeat-start":
-        scene.add(_line("measure repeat-barline", x, top, x, bottom, 4.0))
-        scene.add(_line("measure repeat-barline", x + 6, top, x + 6, bottom, 1.4))
+        scene.add(_line("measure repeat-barline", x, top, x, bottom, 4.5))
+        scene.add(_line("measure repeat-barline", x + 6, top, x + 6, bottom, 1.5))
         return
-    scene.add(_line("measure repeat-barline", x - 6, top, x - 6, bottom, 1.4))
-    scene.add(_line("measure repeat-barline", x, top, x, bottom, 4.0))
+    scene.add(_line("measure repeat-barline", x - 6, top, x - 6, bottom, 1.5))
+    scene.add(_line("measure repeat-barline", x, top, x, bottom, 4.5))
 
 
 def _normalize_parts(scores: list[JianpuScore]) -> list[list[JianpuScore]]:
@@ -1254,8 +1255,8 @@ def _lyric_intrinsic_measure_width(measure: Measure, style: PublicationStyle) ->
             ink_left, _top, _right, _bottom = font_registry().ink_bounds(
                 block.text, font_size, 500
             )
-            advance = font_registry().measure(block.text, font_size, 500)
-            boxes.append((ink_left, ink_left + advance))
+            box = lyric_text_box(block.text, font_size)
+            boxes.append((box.left, box.right))
         measured.append(
             (
                 min(left for left, _right in boxes),
@@ -1864,11 +1865,11 @@ def _measure_event_visual_extents(
         ink_left, top, _right, bottom = font_registry().ink_bounds(
             block.text, font_size, 500
         )
-        advance = font_registry().measure(block.text, font_size, 500)
         left, right, old_top, old_bottom = extents[target]
+        lyric_box = lyric_text_box(block.text, font_size)
         extents[target] = (
-            min(left, ink_left),
-            max(right, ink_left + advance),
+            min(left, lyric_box.left),
+            max(right, lyric_box.right),
             old_top,
             old_bottom,
         )
@@ -4130,32 +4131,38 @@ def _spanner(
             ex = end.x - 5
         span = max(0.0, ex - sx)
         if kind == "slur":
-            # Longer phrases need a slightly higher arch; short spans stay compact.
-            height = -min(30.0, max(12.0, resolved_style.slur_height + span * 0.035))
-            base = min(start.bbox.y, end.bbox.y) - resolved_style.spanner_base_clearance
-            control_left = sx + span * 0.33
-            control_right = sx + span * 0.67
-            d = (
-                f"M {sx:g} {base:g} C {control_left:g} {base + height:g} "
-                f"{control_right:g} {base + height:g} {ex:g} {base:g}"
+            magnitude = max(
+                resolved_style.note_size * 0.45,
+                min(resolved_style.note_size * 1.20, span * 0.22),
             )
+            height = -magnitude
+            base = min(start.bbox.y, end.bbox.y) - resolved_style.spanner_base_clearance
         else:
             start_bottom = start.y + _event_attachment_bottom(
                 start.event, resolved_style
             )
             end_bottom = end.y + _event_attachment_bottom(end.event, resolved_style)
             base = max(start_bottom, end_bottom) + resolved_style.tie_below_clearance
-            thickness = 2.2
-            height = max(4.0, min(12.0, resolved_style.tie_height))
-            control_left = sx + span * 0.33
-            control_right = sx + span * 0.67
-            # Closed filled band, matching engraved ties and remaining stable at short spans.
-            d = (
-                f"M {sx:g} {base:g} C {control_left:g} {base + height:g} "
-                f"{control_right:g} {base + height:g} {ex:g} {base:g} "
-                f"C {control_right:g} {base + height - thickness:g} "
-                f"{control_left:g} {base + height - thickness:g} {sx:g} {base:g} Z"
+            height = max(
+                resolved_style.note_size * 0.22,
+                min(resolved_style.note_size * 0.45, span * 0.12),
             )
+        control_left = sx + span * 0.33
+        control_right = sx + span * 0.67
+        endpoint = resolved_style.note_size * 0.025
+        midpoint = resolved_style.note_size * 0.06
+        # Both ties and slurs are filled, tapered outlines rather than uniform
+        # strokes. The signed height also works for upward and downward arches.
+        d = (
+            f"M {sx:g} {base - endpoint / 2:g} "
+            f"C {control_left:g} {base + height - midpoint / 2:g} "
+            f"{control_right:g} {base + height - midpoint / 2:g} "
+            f"{ex:g} {base - endpoint / 2:g} "
+            f"L {ex:g} {base + endpoint / 2:g} "
+            f"C {control_right:g} {base + height + midpoint / 2:g} "
+            f"{control_left:g} {base + height + midpoint / 2:g} "
+            f"{sx:g} {base + endpoint / 2:g} Z"
+        )
     source_ids = list(
         dict.fromkeys(
             [
@@ -4604,10 +4611,30 @@ def _measure_text_layout(
                 y + previous_bottom + style.text_lane_gap - ink_top,
             )
         if block.role == "lyric":
+            next_block = next(
+                (
+                    candidate
+                    for candidate in blocks[index + 1 :]
+                    if candidate.role == "lyric"
+                    and (candidate.lyric_verse or 1) == (block.lyric_verse or 1)
+                ),
+                None,
+            )
+            melisma = bool(
+                next_block
+                and next_block.start is not None
+                and block.duration is not None
+                and next_block.start > block.start + block.duration
+            )
+            lyric_box = lyric_text_box(block.text, font_size, melisma=melisma)
+            center_x = max(
+                x - lyric_box.left,
+                min(x + width - lyric_box.right, center_x),
+            )
             bbox = BBox(
-                center_x + ink_left,
+                center_x + lyric_box.left,
                 baseline + ink_top,
-                advance,
+                lyric_box.width,
                 ink_bottom - ink_top,
             )
         else:
@@ -4667,8 +4694,6 @@ def _draw_measure_text(
             layout.text, layout.font_size, 500 if layout.role == "lyric" else 400
         )
         if layout.role == "lyric":
-            # 左对齐：歌词从音符位置向右延伸，anchor="start" 起始于
-            # bbox.x - ink_left（= center_x）。
             text_x = layout.bbox.x - ink_left
             text_anchor = "start"
         else:
@@ -4684,8 +4709,12 @@ def _draw_measure_text(
             anchor=text_anchor,
         )
         node.attrs["data-bbox"] = layout.bbox.as_data()
-        node.attrs["data-content-start"] = x + style.barline_gutter
-        node.attrs["data-content-end"] = x + width - style.barline_gutter
+        node.attrs["data-content-start"] = (
+            x if layout.role == "lyric" else x + style.barline_gutter
+        )
+        node.attrs["data-content-end"] = (
+            x + width if layout.role == "lyric" else x + width - style.barline_gutter
+        )
         scene.add(node)
 
 

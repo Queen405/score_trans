@@ -14,7 +14,7 @@ _CSS = """
 .note,.accidental,.score-title,.score-meta,.part-name,.measure-no,.repeat-count,.annotation,.lyric,.tuplet-number,.dynamic,.technique{font-family:ScoreTransNotoSerif,serif}
 .music-symbol{font-family:ScoreTransBravura,serif}.note{font-weight:500}
 .measure,.system-bracket,.duration-line,.beam-line,.extension-line,.ending-line,.ending-hook,.repeat-dot,.staff-line{stroke:#171717;fill:none;stroke-linecap:round}
-.tie,.slur,.slide{stroke:#171717;stroke-width:1.8;fill:none;stroke-linecap:round}.tie{fill:#171717;stroke:none}
+.slide{stroke:#171717;stroke-width:1.8;fill:none;stroke-linecap:round}.tie,.slur{fill:#171717;stroke:none}
 .performance-mark-stroke{stroke:#171717;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .performance-mark-fill{fill:#171717;stroke:none}
 .tuplet-bracket{stroke:#171717;stroke-width:1.4;fill:none;stroke-linecap:round}.octave-dot,.rhythm-dot{fill:#171717}

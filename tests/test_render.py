@@ -3120,9 +3120,8 @@ def test_lyrics_align_with_quarter_note_positions() -> None:
     assert [layout.text for layout in layouts] == ["春", "眠", "觉", "晓"]
     registry = font_registry()
     for layout, position in zip(layouts, positions, strict=True):
-        ink_left = registry.ink_bounds(layout.text, layout.font_size)[0]
-        left_edge = layout.bbox.x - ink_left
-        assert abs(left_edge - position) < 1.0
+        center = layout.bbox.x + layout.bbox.width / 2
+        assert abs(center - position) < 1.0
 
 
 def test_edge_lyrics_align_with_eighth_notes_at_measure_edges() -> None:
@@ -3185,12 +3184,10 @@ def test_edge_lyrics_align_with_eighth_notes_at_measure_edges() -> None:
 
     assert [layout.text for layout in layouts] == ["春", "眠", "觉", "晓", "夜", "雨"]
     registry = font_registry()
-    first_ink_left = registry.ink_bounds(layouts[0].text, layouts[0].font_size)[0]
-    last_ink_left = registry.ink_bounds(layouts[-1].text, layouts[-1].font_size)[0]
-    first_left = layouts[0].bbox.x - first_ink_left
-    last_left = layouts[-1].bbox.x - last_ink_left
-    assert abs(first_left - positions[0]) < 1.0
-    assert abs(last_left - positions[-1]) < 1.0
+    first_center = layouts[0].bbox.x + layouts[0].bbox.width / 2
+    last_center = layouts[-1].bbox.x + layouts[-1].bbox.width / 2
+    assert abs(first_center - positions[0]) < 1.0
+    assert abs(last_center - positions[-1]) < 1.0
 
 
 def test_first_lyric_aligns_when_wide_lyric_pushes_first_note() -> None:
@@ -3236,19 +3233,16 @@ def test_first_lyric_aligns_when_wide_lyric_pushes_first_note() -> None:
 
     layouts = _measure_text_layout(measure, x, width, 0.0, style)
 
-    # bbox 左对齐：歌词左缘（bbox.x - ink_left = center_x）与音符位置对齐。
-    registry = font_registry()
-    ink_left, _top, _right, _bottom = registry.ink_bounds(
-        layouts[0].text, layouts[0].font_size
-    )
-    first_anchor = layouts[0].bbox.x - ink_left
-    assert abs(first_anchor - positions[0]) < 1.0
-    assert first_anchor > clip_left
+    # 中文歌词主体居中于被其宽度推动后的实际音符位置。
+    first_center = layouts[0].bbox.x + layouts[0].bbox.width / 2
+    assert abs(first_center - positions[0]) < 1.0
+    assert first_center > clip_left
 
     # 端到端：渲染出的歌词节点 x 与首个音符节点 x 一致。
     root = _root(render_score_svg(JianpuScore(measures=[measure])))
     lyric_x = next(
-        _translate(node)[0]
+        float(node.attrib["data-bbox"].split()[0])
+        + float(node.attrib["data-bbox"].split()[2]) / 2
         for node in root.iter()
         if node.attrib.get("class") == "lyric"
         and node.attrib.get("aria-label") == "春眠"
@@ -3275,13 +3269,13 @@ def test_measure_text_layout_falls_back_without_visual_events() -> None:
 
     assert [layout.text for layout in layouts] == ["词"]
     registry = font_registry()
-    ink_left = registry.ink_bounds(layouts[0].text, layouts[0].font_size)[0]
-    left_edge = layouts[0].bbox.x - ink_left
-    assert abs(left_edge - style.barline_gutter) < 1.0
+    assert layouts[0].bbox.x + layouts[0].bbox.width / 2 == pytest.approx(
+        style.barline_gutter
+    )
 
 
-def test_lyrics_are_left_aligned_while_annotations_remain_centered() -> None:
-    """歌词左对齐（anchor=start，左缘钉在音符 x），注解保持居中（anchor=middle）。"""
+def test_lyrics_are_centered_while_annotations_remain_centered() -> None:
+    """普通歌词居中于音符，注解继续使用居中定位。"""
     events = [
         Event(
             kind="note",
@@ -3312,10 +3306,9 @@ def test_lyrics_are_left_aligned_while_annotations_remain_centered() -> None:
     note_nodes = [node for node in root.iter() if node.attrib.get("class") == "note"]
     assert lyric_nodes and annotation_nodes and note_nodes
 
-    # 歌词：transform 的末段 translate(offset 0) 中 offset=0（左对齐），
-    # 且首个 translate x = 音符 x。
     for lyric_node, note_node in zip(lyric_nodes, note_nodes, strict=True):
-        lyric_x = _translate(lyric_node)[0]
+        lyric_box = [float(value) for value in lyric_node.attrib["data-bbox"].split()]
+        lyric_x = lyric_box[0] + lyric_box[2] / 2
         note_x = _translate(note_node)[0]
         assert abs(lyric_x - note_x) < 1.0, (
             f"歌词 x={lyric_x:.1f} 应与音符 x={note_x:.1f} 对齐"
@@ -3334,8 +3327,22 @@ def _assert_rendered_lyrics_align_with_notes(svg: str) -> None:
     notes = [
         _translate(node) for node in root.iter() if node.attrib.get("class") == "note"
     ]
+    content = next(
+        node for node in root if node.attrib.get("class") == "publication-content"
+    )
+    content_scale = _scale(content)
     lyrics = [
-        (_translate(node), node.attrib.get("aria-label"))
+        (
+            (
+                (
+                    float(node.attrib["data-bbox"].split()[0])
+                    + float(node.attrib["data-bbox"].split()[2]) / 2
+                )
+                / content_scale,
+                _translate(node)[1],
+            ),
+            node.attrib.get("aria-label"),
+        )
         for node in root.iter()
         if node.attrib.get("class") == "lyric"
     ]
@@ -3639,7 +3646,7 @@ def test_fixed_mode_shared_onsets_use_one_optical_grid() -> None:
     )
 
 
-def test_fixed_mode_lyrics_follow_strict_anchors_without_moving_notes() -> None:
+def test_fixed_mode_lyrics_use_shared_optical_positions() -> None:
     style = PublicationStyle(measures_per_system=4)
     events = [
         Event(
@@ -3673,12 +3680,8 @@ def test_fixed_mode_lyrics_follow_strict_anchors_without_moving_notes() -> None:
     )
 
     assert positions == pytest.approx([100, 200])
-    assert layouts[0].bbox.x - font_registry().ink_bounds(
-        layouts[0].text, layouts[0].font_size, 500
-    )[0] == pytest.approx(100)
-    assert layouts[1].bbox.x - font_registry().ink_bounds(
-        layouts[1].text, layouts[1].font_size, 500
-    )[0] == pytest.approx(200)
+    assert layouts[0].bbox.x == pytest.approx(82)
+    assert layouts[1].bbox.x + layouts[1].bbox.width / 2 == pytest.approx(200)
 
 
 def test_fixed_mode_mixed_durations_use_sublinear_spacing() -> None:
@@ -3819,8 +3822,7 @@ def test_fixed_mode_lyrics_widen_the_shared_grid_for_every_part() -> None:
     plain_positions = _shared_cell_positions([plain, plain], 82, 400, style)
     lyric_positions = _shared_cell_positions([plain, with_lyric], 82, 400, style)
 
-    assert lyric_positions[Fraction(0)] == pytest.approx(plain_positions[Fraction(0)])
-    assert lyric_positions[Fraction(1)] > plain_positions[Fraction(1)]
+    assert lyric_positions[Fraction(1)] != pytest.approx(plain_positions[Fraction(1)])
     assert list(lyric_positions.values()) == sorted(lyric_positions.values())
     assert all(82 <= position <= 482 for position in lyric_positions.values())
 

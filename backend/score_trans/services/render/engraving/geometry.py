@@ -91,6 +91,39 @@ def _left_aligned_text_box(value: str, size: float, weight: int = 500) -> InkBox
     return InkBox(left, top, advance, bottom)
 
 
+_EAST_ASIAN_RANGES = (
+    (0x2E80, 0x9FFF),
+    (0xF900, 0xFAFF),
+    (0x20000, 0x2FA1F),
+)
+_LYRIC_PREFIX_PUNCTUATION = "([{（《〈「『【“‘"
+_LYRIC_SUFFIX_PUNCTUATION = ",.!?;:!?！？；：，。、)]}）》〉」』】”’…—~"
+
+
+def lyric_text_box(text: str, size: float, *, melisma: bool = False) -> InkBox:
+    """Return a lyric's full ink box relative to its musical note anchor."""
+    if melisma:
+        return _left_aligned_text_box(text, size)
+    registry = font_registry()
+    if any(
+        any(start <= ord(char) <= end for start, end in _EAST_ASIAN_RANGES)
+        for char in text
+    ):
+        prefix = 0
+        while prefix < len(text) and text[prefix] in _LYRIC_PREFIX_PUNCTUATION:
+            prefix += 1
+        suffix = len(text)
+        while suffix > prefix and text[suffix - 1] in _LYRIC_SUFFIX_PUNCTUATION:
+            suffix -= 1
+        prefix_width = registry.measure(text[:prefix], size, 500)
+        core_width = registry.measure(text[prefix:suffix], size, 500)
+        left = -prefix_width - core_width / 2
+        _ink_left, top, _ink_right, bottom = registry.ink_bounds(text, size, 500)
+        advance = registry.measure(text, size, 500)
+        return InkBox(left, top, left + advance, bottom)
+    return _centered_text_box(text, size, 500)
+
+
 def _translated(box: InkBox, x: float, y: float) -> InkBox:
     return InkBox(box.left + x, box.top + y, box.right + x, box.bottom + y)
 
@@ -577,7 +610,7 @@ def measure_event_layout(
     if event.lyric:
         lyric_baseline = _lyric_baseline(event, style) + subtext_offset
         lyric_box = _translated(
-            _left_aligned_text_box(event.lyric, style.lyric_size),
+            lyric_text_box(event.lyric, style.lyric_size, melisma=event.tie_start),
             0.0,
             lyric_baseline,
         )
@@ -590,7 +623,7 @@ def measure_event_layout(
     for verse, text in (event.lyrics or {}).items():
         if verse == 1 or not text:
             continue
-        box = box.union(_left_aligned_text_box(text, style.lyric_size))
+        box = box.union(lyric_text_box(text, style.lyric_size, melisma=event.tie_start))
     if event.dynamic:
         dynamic_baseline = _dynamic_baseline(event, style) + subtext_offset
         dynamic_box = _translated(
