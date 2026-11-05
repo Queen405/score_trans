@@ -68,7 +68,7 @@ const settings = {
     maxHeap: '最大堆内存',
     pixelLimit: '像素上限',
     binarizationMode: '二值化方式',
-    binarizationAuto: 'Audiveris 自动',
+    binarizationAuto: '自动',
     binarizationManual: '手动',
     binarizationThreshold: '二值化阈值',
     autoUpscale: '自动放大图片',
