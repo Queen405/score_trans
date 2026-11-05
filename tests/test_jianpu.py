@@ -20,8 +20,14 @@ from score_trans.domain.jianpu_tokens import (
     token_duration,
 )
 from score_trans.domain.musicxml import score_to_jianpu_text
-from score_trans.domain.parse.jianpu_text import JianpuSyntaxError, validate_jianpu_text
+from score_trans.domain.parse.jianpu_text import (
+    JianpuSyntaxError,
+    parse_jianpu_parts,
+    validate_jianpu_text,
+)
 from score_trans.domain.performance_marks import PERFORMANCE_MARKS
+from score_trans.domain.write.jianpu_text import scores_to_jianpu_text
+from score_trans.services.export.export_service import _pitch_to_midi
 from score_trans.models.score import Event, JianpuPitch, JianpuScore, Measure
 
 
@@ -44,6 +50,119 @@ def test_measure_level_key_and_time_signature_are_attached_to_following_measure(
     assert score.measures[1].target_key == "G"
     assert score.measures[1].beats_per_measure == 3
     assert score.measures[1].beat_type == 4
+
+
+def _page_and_part_keys(text: str) -> list[tuple[str, list[str]]]:
+    return [
+        (part.score.target_key, [measure.target_key for measure in part.score.measures])
+        for part in parse_jianpu_parts(text)
+    ]
+
+
+def test_page_without_key_inherits_latest_key_across_parts() -> None:
+    text = (
+        '// @page 1 name="a.png"\n// @part 1 name="A"\n'
+        "1=G\n4/4\n1 2 3 4 |\n1=E 1 2 3 4 |\n"
+        '// @part 2 name="B"\n4/4\n1 2 3 4 |\n'
+        '// @page 2 name="b.png"\n// @part 1 name="A"\n1 2 3 4 |'
+    )
+    assert _page_and_part_keys(text) == [("G", ["G", "E"]), ("E", ["E"]), ("E", ["E"])]
+
+
+def test_explicit_key_after_page_break_is_not_overwritten_by_inheritance() -> None:
+    text = (
+        '// @page 1\n// @part 1 name="A"\n1=G\n1 2 3 4 |\n'
+        '// @page 2\n// @part 1 name="A"\n1=C\n1 2 3 4 |'
+    )
+    assert _page_and_part_keys(text) == [("G", ["G"]), ("C", ["C"])]
+
+
+def test_document_without_any_key_still_defaults_to_c() -> None:
+    text = '// @page 1\n// @part 1 name="A"\n1 2 3 4 |'
+    assert _page_and_part_keys(text) == [("C", ["C"])]
+
+
+def test_inherited_key_roundtrip_is_explicit_and_stable() -> None:
+    text = (
+        '// @page 1\n// @part 1 name="A"\n1=G\n4/4\n1 2 3 4 |\n'
+        '1=E 1 2 3 4 |\n// @page 2\n// @part 1 name="A"\n1 2 3 4 |'
+    )
+    parts = parse_jianpu_parts(text)
+    written = scores_to_jianpu_text([part.score for part in parts])
+    assert '// @page 2\n// @part 1 name="A"\n1=E' in written
+    assert _page_and_part_keys(written) == _page_and_part_keys(text)
+    note = parts[-1].score.measures[0].events[0].pitches[0]
+    assert _pitch_to_midi(note, parts[-1].score.target_key) == 64
+
+
+def test_empty_following_part_does_not_reset_document_key() -> None:
+    text = (
+        '// @page 1\n// @part 1 name="A"\n1=G\n1 2 3 4 |\n'
+        '// @part 2 name="Empty"\n// @page 2\n// @part 1 name="A"\n1 2 3 4 |'
+    )
+    assert _page_and_part_keys(text)[-1] == ("G", ["G"])
+
+
+def _page_and_part_meters(
+    text: str,
+) -> list[tuple[tuple[int, int], list[tuple[int, int]]]]:
+    return [
+        (
+            (part.score.beats, part.score.beat_type),
+            [
+                (measure.beats_per_measure, measure.beat_type)
+                for measure in part.score.measures
+            ],
+        )
+        for part in parse_jianpu_parts(text)
+    ]
+
+
+def test_latest_meter_is_inherited_across_parts_and_pages() -> None:
+    text = (
+        '// @page 1\n// @part 1 name="A"\n3/4\n1 2 3 |\n2/4 1 2 |\n'
+        '// @part 2 name="B"\n1 2 |\n// @page 2\n// @part 1 name="A"\n1 2 |'
+    )
+    assert _page_and_part_meters(text) == [
+        ((3, 4), [(3, 4), (2, 4)]),
+        ((2, 4), [(2, 4)]),
+        ((2, 4), [(2, 4)]),
+    ]
+
+
+def test_explicit_meter_after_page_break_overrides_inheritance() -> None:
+    text = (
+        '// @page 1\n// @part 1 name="A"\n6/8\n1 2 3 |\n'
+        '// @page 2\n// @part 1 name="A"\n4/4\n1 2 3 4 |'
+    )
+    assert _page_and_part_meters(text)[-1] == ((4, 4), [(4, 4)])
+
+
+def test_key_and_meter_inherit_independently() -> None:
+    text = (
+        '// @page 1\n// @part 1 name="A"\n1=G\n3/4\n1 2 3 |\n'
+        "1=E 6/8 1 2 3 |\n"
+        '// @page 2\n// @part 1 name="A"\n1=C\n1 2 3 |\n'
+        '// @part 2 name="B"\n3/4\n1 2 3 |'
+    )
+    parts = parse_jianpu_parts(text)
+    assert parts[1].score.target_key == "C"
+    assert (parts[1].score.beats, parts[1].score.beat_type) == (6, 8)
+    assert parts[2].score.target_key == "C"
+    assert (parts[2].score.beats, parts[2].score.beat_type) == (3, 4)
+
+
+def test_inherited_meter_roundtrip_preserves_measure_duration() -> None:
+    text = (
+        '// @page 1\n// @part 1 name="A"\n3/4\n1 2 3 |\n2/4 1 2 |\n'
+        '// @page 2\n// @part 1 name="A"\n1 2 |'
+    )
+    parts = parse_jianpu_parts(text)
+    written = scores_to_jianpu_text([part.score for part in parts])
+    assert '// @page 2\n// @part 1 name="A"\n1=G' not in written
+    reparsed = parse_jianpu_parts(written)
+    assert reparsed[-1].score.measures[0].duration == 2
+    assert (reparsed[-1].score.beats, reparsed[-1].score.beat_type) == (2, 4)
 
 
 @pytest.mark.parametrize(

@@ -68,8 +68,10 @@ _ENDING_CLOSE_TOKEN = "{.}"
 @dataclass(slots=True)
 class JianpuOptions:
     key: str = "C"
+    key_explicit: bool = False
     beats: int = 4
     beat_type: int = 4
+    meter_explicit: bool = False
     title: str | None = None
     tempo: int | None = None
     instrument_profile: InstrumentProfile = "general"
@@ -1103,6 +1105,9 @@ def parse_jianpu_parts(
             )
 
     parts: list[ParsedJianpuPart] = []
+    document_current_key = "C"
+    document_current_beats = 4
+    document_current_beat_type = 4
     current_page_start: int = -1
     page_part_index = 0
     # F2：上一个声部正文被 @page 截断时，其后的页眉归属下一个声部（起点前移）。
@@ -1163,9 +1168,21 @@ def parse_jianpu_parts(
             score = parse_jianpu_score(
                 part_text_without_page_markers,
                 title=title,
+                _initial_key=document_current_key,
+                _initial_beats=document_current_beats,
+                _initial_beat_type=document_current_beat_type,
             )
         except JianpuSyntaxError as exc:
             raise _remap_part_syntax_error(exc, text, start) from exc
+        document_current_key = (
+            score.measures[-1].target_key if score.measures else score.target_key
+        )
+        document_current_beats = (
+            score.measures[-1].beats_per_measure if score.measures else score.beats
+        )
+        document_current_beat_type = (
+            score.measures[-1].beat_type if score.measures else score.beat_type
+        )
         base_utf16 = _utf16_length(text[:start])
         for measure in score.measures:
             if measure.source_start_utf16 is not None:
@@ -1280,11 +1297,26 @@ def parse_jianpu_score(
     *,
     title: str | None = None,
     _initial_tempo: int = DEFAULT_TEMPO,
+    _initial_key: str = "C",
+    _initial_beats: int = 4,
+    _initial_beat_type: int = 4,
 ) -> JianpuScore:
     normalized = text.lstrip("\ufeff")
     options, token_lines, lyrics = _read_new_syntax(normalized)
+    initial_key = options.key if options.key_explicit else _initial_key
+    initial_beats = options.beats if options.meter_explicit else _initial_beats
+    initial_beat_type = (
+        options.beat_type if options.meter_explicit else _initial_beat_type
+    )
     return _parse_score_tokens(
-        options, token_lines, lyrics, title=title, initial_tempo=_initial_tempo
+        options,
+        token_lines,
+        lyrics,
+        title=title,
+        initial_tempo=_initial_tempo,
+        initial_key=initial_key,
+        initial_beats=initial_beats,
+        initial_beat_type=initial_beat_type,
     )
 
 
@@ -1555,16 +1587,24 @@ def _parse_score_tokens(
     *,
     title: str | None = None,
     initial_tempo: int = DEFAULT_TEMPO,
+    initial_key: str | None = None,
+    initial_beats: int | None = None,
+    initial_beat_type: int | None = None,
     recovery: _PreviewRecovery | None = None,
 ) -> JianpuScore:
     if title is not None and options.title is None:
         options.title = title
+    initial_key = options.key if initial_key is None else initial_key
+    initial_beats = options.beats if initial_beats is None else initial_beats
+    initial_beat_type = (
+        options.beat_type if initial_beat_type is None else initial_beat_type
+    )
     score = JianpuScore(
         title=options.title,
-        target_key=options.key,
-        source_key=options.key,
-        beats=options.beats,
-        beat_type=options.beat_type,
+        target_key=initial_key,
+        source_key=initial_key,
+        beats=initial_beats,
+        beat_type=initial_beat_type,
         tempo=options.tempo,
         instrument_profile=options.instrument_profile,
     )
@@ -1594,9 +1634,9 @@ def _parse_score_tokens(
     # 嵌套反复 warning 挂到 |: 引入的小节上；flush_measure 在小节落位时写入
     # （warnings 字典在小节追加时被覆盖，提前写入会被清空）。
     pending_nested_repeat_token: _Token | None = None
-    current_key = options.key
-    current_beats = options.beats
-    current_beat_type = options.beat_type
+    current_key = initial_key
+    current_beats = initial_beats
+    current_beat_type = initial_beat_type
     current_tempo = options.tempo or initial_tempo
     pending_slide_token: _Token | None = None
     skip_empty_bar_after_repeat_end = False
@@ -2432,6 +2472,7 @@ def _read_new_syntax(
                         saw_token_since_bar = True
                     else:
                         options.key = value
+                        options.key_explicit = True
                         saw_key = True
                     continue
                 if key == "title":
@@ -2512,6 +2553,7 @@ def _read_new_syntax(
                         )
                     options.beats = int(beats)
                     options.beat_type = int(beat_type)
+                    options.meter_explicit = True
                 continue
         except JianpuSyntaxError as exc:
             if recovery is None:
