@@ -28,6 +28,8 @@ from ...models.playback import PlaybackEvent, PlaybackTextSource
 from ...models.score import DEFAULT_TEMPO, JianpuPitch, JianpuScore
 
 _TICKS_PER_BEAT = MIDI_TICKS_PER_BEAT
+_A4_WIDTH_PT = 210.0 / 25.4 * 72.0
+_A4_HEIGHT_PT = 297.0 / 25.4 * 72.0
 
 
 def _midi_time_signature_denominator(beat_type: int) -> int:
@@ -120,7 +122,8 @@ def svg_pages_to_pdf(svg_pages: list[bytes], output_path: Path) -> Path:
                 source.close()
             page_doc = fitz.open("pdf", pdf_data)
             try:
-                target.insert_pdf(page_doc)
+                page = target.new_page(width=_A4_WIDTH_PT, height=_A4_HEIGHT_PT)
+                page.show_pdf_page(page.rect, page_doc, 0)
             finally:
                 page_doc.close()
         target.save(str(output_path))
@@ -138,13 +141,22 @@ def svg_page_to_image(
 ) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     source = fitz.open("svg", _strip_invisible_text(svg_data))
+    converted = None
+    document = None
     try:
-        page = source[0]
+        converted = fitz.open("pdf", source.convert_to_pdf())
+        document = fitz.open()
+        page = document.new_page(width=_A4_WIDTH_PT, height=_A4_HEIGHT_PT)
+        page.show_pdf_page(page.rect, converted, 0)
         pixmap = page.get_pixmap(
-            matrix=fitz.Matrix(dpi / 96.0, dpi / 96.0), alpha=False
+            matrix=fitz.Matrix(dpi / 72.0, dpi / 72.0), alpha=False
         )
         pixmap.save(str(output_path), output="jpg" if image_format == "jpeg" else "png")
     finally:
+        if document is not None:
+            document.close()
+        if converted is not None:
+            converted.close()
         source.close()
     return output_path
 
