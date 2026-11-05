@@ -21,6 +21,7 @@ const editorSource = source('../src/renderer/src/components/JianpuEditor.vue')
 const convertSource = source('../src/renderer/src/views/ConvertView.vue')
 const historyRestoreSource = source('../src/renderer/src/composables/useHistoryRestore.ts')
 const originalPreviewSource = source('../src/renderer/src/components/OriginalPreview.vue')
+const toolPathsSource = source('../src/renderer/src/components/settings/ToolPathsPanel.vue')
 const markerInspectorSource = source('../src/renderer/src/components/MarkerInspector.vue')
 const shapeDescriptorSource = source('../src/renderer/src/utils/shapeDescriptor.ts')
 const playerSource = source('../src/renderer/src/components/JianpuPlayer.vue')
@@ -120,6 +121,15 @@ test('applied deletions stay clickable in edit mode so they can be restored', ()
   assert.match(originalPreviewSource, /t\('convert\.marker\.restore'\)/)
   // 再次点击后虚线转绿，表示等待应用即可恢复
   assert.match(originalPreviewSource, /deleted-mark--restore/)
+})
+
+test('binarization offers explicit automatic and manual modes', () => {
+  assert.match(toolPathsSource, /v-model:value="binarizationMode"/)
+  assert.match(toolPathsSource, /binarizationAuto/)
+  assert.match(toolPathsSource, /binarizationManual/)
+  assert.match(toolPathsSource, /:disabled="binarizationMode === 'auto'"/)
+  assert.match(toolPathsSource, /:min="1"/)
+  assert.match(toolPathsSource, /mode === 'auto'\s*\?\s*0/)
 })
 
 test('uploader and recognition coordination state is instance scoped', () => {

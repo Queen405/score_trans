@@ -56,13 +56,31 @@
         </settings-form-row>
 
         <settings-form-row
+          :label="t('settings.tools.binarizationMode')"
+        >
+          <n-radio-group
+            v-model:value="binarizationMode"
+            class="sv-theme-options"
+            size="small"
+          >
+            <n-radio-button value="auto">
+              {{ t('settings.tools.binarizationAuto') }}
+            </n-radio-button>
+            <n-radio-button value="manual">
+              {{ t('settings.tools.binarizationManual') }}
+            </n-radio-button>
+          </n-radio-group>
+        </settings-form-row>
+
+        <settings-form-row
           :label="t('settings.tools.binarizationThreshold')"
         >
           <n-input-number
-            v-model:value="settings.draft.audiverisBinarizationThreshold"
-            :min="0"
+            v-model:value="manualBinarizationThreshold"
+            :min="1"
             :max="254"
             :step="1"
+            :disabled="binarizationMode === 'auto'"
             size="small"
           />
         </settings-form-row>
@@ -94,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { NInput, NInputNumber, NRadioButton, NRadioGroup, NSwitch } from 'naive-ui'
 import { useSettingsStore } from '../../stores/settings'
 import { t } from '../../i18n'
@@ -108,6 +126,34 @@ const heapOptions = [
   { label: '3G', value: '3g' },
   { label: '4G', value: '4g' },
 ]
+
+const lastManualBinarizationThreshold = ref(210)
+watch(
+  () => settings.draft.audiverisBinarizationThreshold,
+  (value) => {
+    if (value > 0) lastManualBinarizationThreshold.value = value
+  },
+  { immediate: true },
+)
+
+const binarizationMode = computed<'auto' | 'manual'>({
+  get: () => settings.draft.audiverisBinarizationThreshold === 0 ? 'auto' : 'manual',
+  set: (mode) => {
+    settings.draft.audiverisBinarizationThreshold = mode === 'auto'
+      ? 0
+      : lastManualBinarizationThreshold.value
+  },
+})
+const manualBinarizationThreshold = computed<number>({
+  get: () => (
+    settings.draft.audiverisBinarizationThreshold
+    || lastManualBinarizationThreshold.value
+  ),
+  set: (value: number | null) => {
+    if (value === null || binarizationMode.value === 'auto') return
+    settings.draft.audiverisBinarizationThreshold = value
+  },
+})
 
 const maxPixelCountNumber = computed({
   get: () => Number(settings.draft.audiverisMaxPixelCount) || 0,
