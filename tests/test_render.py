@@ -51,6 +51,7 @@ from score_trans.services.render.engraving.renderer import (
     _rhythm_edge_padding,
     _rhythm_line_base,
     _shared_cell_positions,
+    _system_common_shortest_duration,
     _visual_events,
     _system_extra_height,
 )
@@ -135,7 +136,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-27"
+    assert root.attrib["data-engine-version"] == "publication-28"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -3571,7 +3572,7 @@ def test_standalone_forced_page_break_is_honored_in_every_layout_mode(
     assert pages[1].measure_ranges[0].start_measure_number == 3
 
 
-def test_fixed_mode_uses_strict_time_anchors_for_quarter_and_eighth_notes() -> None:
+def test_fixed_mode_uses_shared_optical_grid_for_quarter_and_eighth_notes() -> None:
     style = PublicationStyle(measures_per_system=4)
     quarter_measure = Measure(
         "1",
@@ -3596,13 +3597,14 @@ def test_fixed_mode_uses_strict_time_anchors_for_quarter_and_eighth_notes() -> N
     quarter_gaps = [right - left for left, right in zip(quarter, quarter[1:])]
     eighth_gaps = [right - left for left, right in zip(eighth, eighth[1:])]
     assert quarter_gaps == pytest.approx([quarter_gaps[0]] * 3)
+    # Uniform subdivisions stay uniform, preserving exact beat midpoints.
     assert eighth_gaps == pytest.approx([eighth_gaps[0]] * 7)
     assert quarter[0] > 100
     assert quarter[-1] < 500
     assert eighth[2] == pytest.approx((eighth[0] + eighth[4]) / 2)
 
 
-def test_fixed_mode_shared_onsets_use_one_strict_time_grid() -> None:
+def test_fixed_mode_shared_onsets_use_one_optical_grid() -> None:
     style = PublicationStyle(measures_per_system=4)
     quarter = Measure(
         "1",
@@ -3675,6 +3677,70 @@ def test_fixed_mode_lyrics_follow_strict_anchors_without_moving_notes() -> None:
     )[0] == pytest.approx(200)
 
 
+def test_fixed_mode_mixed_durations_use_sublinear_spacing() -> None:
+    style = PublicationStyle(measures_per_system=4)
+    measure = Measure(
+        "1",
+        duration=Fraction(4),
+        events=[
+            Event("note", Fraction(2), [JianpuPitch(1)], start=Fraction(0)),
+            Event("note", Fraction(1), [JianpuPitch(2)], start=Fraction(2)),
+            Event("note", Fraction(1), [JianpuPitch(3)], start=Fraction(3)),
+        ],
+    )
+
+    positions = _event_positions(measure.events, 100, 500, measure, style)
+    half_gap = positions[1] - positions[0]
+    quarter_gap = positions[2] - positions[1]
+    assert quarter_gap < half_gap < 2 * quarter_gap
+
+
+def test_fixed_mode_tuplet_attachment_expands_only_its_internal_gaps() -> None:
+    style = PublicationStyle(measures_per_system=4)
+    starts = [Fraction(0), Fraction(2, 3), Fraction(4, 3), Fraction(2), Fraction(3)]
+    events = [
+        Event(
+            "note",
+            Fraction(2, 3) if index < 3 else Fraction(1),
+            [JianpuPitch(index + 1)],
+            start=start,
+            tuplet_id="triplet" if index < 3 else None,
+            lyric="a wide lyric" if index == 1 else None,
+        )
+        for index, start in enumerate(starts)
+    ]
+    measure = Measure("1", duration=Fraction(4), events=events)
+    positions = _event_positions(events, 100, 600, measure, style)
+    gaps = [right - left for left, right in pairwise(positions)]
+    assert gaps[0] == pytest.approx(gaps[1])
+    assert gaps[2] > 0
+
+
+def test_system_spacing_reference_ignores_an_isolated_shorter_measure() -> None:
+    eighths = Measure(
+        "1",
+        duration=Fraction(4),
+        events=[
+            Event("note", Fraction(1, 2), [JianpuPitch(1)], start=Fraction(0)),
+            Event("note", Fraction(1, 2), [JianpuPitch(2)], start=Fraction(1, 2)),
+        ],
+    )
+    with_sixteenth = Measure(
+        "2",
+        duration=Fraction(4),
+        events=[
+            Event("note", Fraction(1, 4), [JianpuPitch(1)], start=Fraction(0)),
+            Event("note", Fraction(1, 2), [JianpuPitch(2)], start=Fraction(1, 4)),
+        ],
+    )
+    cells = [
+        _Cell(0, [eighths], 200),
+        _Cell(1, [eighths], 200),
+        _Cell(2, [with_sixteenth], 200),
+    ]
+    assert _system_common_shortest_duration(cells) == Fraction(1, 2)
+
+
 def test_fixed_mode_full_measure_note_and_rest_are_optically_centered() -> None:
     style = PublicationStyle(measures_per_system=4)
     for kind in ("note", "rest"):
@@ -3733,19 +3799,26 @@ def test_fixed_mode_underfull_measure_keeps_nominal_time_positions() -> None:
     )
 
 
-def test_fixed_mode_long_lyrics_do_not_move_full_width_time_anchors() -> None:
+def test_fixed_mode_lyrics_widen_the_shared_grid_for_every_part() -> None:
     style = PublicationStyle(measures_per_system=4)
-    plain = [
-        Event("note", Fraction(1), [JianpuPitch(1)], start=Fraction(0)),
-        Event("note", Fraction(1), [JianpuPitch(2)], start=Fraction(1)),
-        Event("note", Fraction(1), [JianpuPitch(3)], start=Fraction(2)),
-        Event("note", Fraction(1), [JianpuPitch(4)], start=Fraction(3)),
+    plain_events = [
+        Event("note", Fraction(1), [JianpuPitch(1)], start=Fraction(start))
+        for start in range(4)
     ]
-    with_lyric = [replace(event, lyric="x" * 200) for event in plain]
-    measure = Measure("1", duration=Fraction(4), events=with_lyric)
-    assert _event_positions(with_lyric, 100, 500, measure, style) == pytest.approx(
-        _event_positions(plain, 100, 500, measure, style)
-    )
+    lyric_events = [
+        replace(event, lyric="a comparatively long lyric" if index == 0 else None)
+        for index, event in enumerate(plain_events)
+    ]
+    plain = Measure("1", duration=Fraction(4), events=plain_events)
+    with_lyric = Measure("1", duration=Fraction(4), events=lyric_events)
+
+    plain_positions = _shared_cell_positions([plain, plain], 82, 400, style)
+    lyric_positions = _shared_cell_positions([plain, with_lyric], 82, 400, style)
+
+    assert lyric_positions[Fraction(0)] == pytest.approx(plain_positions[Fraction(0)])
+    assert lyric_positions[Fraction(1)] > plain_positions[Fraction(1)]
+    assert list(lyric_positions.values()) == sorted(lyric_positions.values())
+    assert all(82 <= position <= 482 for position in lyric_positions.values())
 
 
 def test_fixed_mode_time_anchor_fallbacks_remain_available() -> None:

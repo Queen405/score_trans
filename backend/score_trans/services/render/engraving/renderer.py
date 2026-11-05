@@ -493,10 +493,13 @@ class PublicationRenderer:
                 staff_y + style.event_baseline,
                 lane_offsets=system.parts[part_index].lanes,
             )
+        common_shortest = _system_common_shortest_duration(system.cells)
         for cell_index, (cell, width) in enumerate(
             zip(system.cells, system.widths, strict=True)
         ):
-            shared_positions = _shared_cell_positions(cell.measures, x, width, style)
+            shared_positions = _shared_cell_positions(
+                cell.measures, x, width, style, common_shortest=common_shortest
+            )
             cell_groups = playback_groups.get(cell.index) if playback_groups else None
             for part_index in range(part_count):
                 measure = (
@@ -563,6 +566,7 @@ class PublicationRenderer:
                     playback_tick_offset=playback_tick_offset,
                     part_index=part_index,
                     part_layout=system.parts[part_index],
+                    common_shortest=common_shortest,
                 )
             x += width
         for part_index, open_state in enumerate(spanners):
@@ -684,6 +688,7 @@ class PublicationRenderer:
         playback_tick_offset: int = 0,
         part_index: int = 0,
         part_layout: _PartLayout | None = None,
+        common_shortest: Fraction | None = None,
     ) -> int:
         visual_events = _visual_events(measure)
         lane_groups = _measure_render_lanes(visual_events)
@@ -793,6 +798,7 @@ class PublicationRenderer:
                 clip_right if style.measures_per_system else clip_right - pad_right,
                 measure,
                 style,
+                common_shortest=common_shortest,
             )
             if shared_positions:
                 event_positions = [
@@ -827,7 +833,11 @@ class PublicationRenderer:
                 _lane_probe(measure, lane_events) for lane_events in lane_groups
             ]
             lane_positions = shared_positions or _shared_cell_positions(
-                lane_probes, x, width, style
+                lane_probes,
+                x,
+                width,
+                style,
+                common_shortest=common_shortest,
             )
             lane_offsets = part_layout.lanes if part_layout is not None else {}
             lyric_offset = part_layout.text_offset if part_layout is not None else 0.0
@@ -854,6 +864,7 @@ class PublicationRenderer:
                     clip_right if style.measures_per_system else clip_right - pad_right,
                     measure,
                     style,
+                    common_shortest=common_shortest,
                 )
                 if lane_positions:
                     event_positions = [
@@ -1429,7 +1440,12 @@ def _playback_group_map(cells: list[_Cell]) -> dict[int, dict[Fraction, int]]:
 
 
 def _shared_cell_positions(
-    measures: list[Measure | None], x: float, width: float, style: PublicationStyle
+    measures: list[Measure | None],
+    x: float,
+    width: float,
+    style: PublicationStyle,
+    *,
+    common_shortest: Fraction | None = None,
 ) -> dict[Fraction, float]:
     """Return one x coordinate per onset shared by every part in a cell.
 
@@ -1476,9 +1492,24 @@ def _shared_cell_positions(
             clip_left = x + style.barline_gutter
             clip_right = x + width - style.barline_gutter
             shared_events = [event for _measure, events in per_part for event in events]
-            shared_measure = Measure("shared", duration=duration, events=shared_events)
+            shared_measure = Measure(
+                "shared",
+                duration=duration,
+                events=shared_events,
+                text_blocks=[
+                    block
+                    for measure in measures
+                    if measure is not None
+                    for block in measure.text_blocks
+                ],
+            )
             positions = _fixed_time_positions(
-                shared_events, clip_left, clip_right, shared_measure, style
+                shared_events,
+                clip_left,
+                clip_right,
+                shared_measure,
+                style,
+                common_shortest=common_shortest,
             )
             if positions is not None:
                 return {
@@ -1559,6 +1590,26 @@ def _union_interval_shares(
         span = positions[nxt] - positions[prev]
         need = max(need, span * float((end - start) / (nxt - prev)))
     return need
+
+
+def _system_common_shortest_duration(cells: list[_Cell]) -> Fraction:
+    """Return the prevailing shortest duration across the measures in a system."""
+    shortest_per_cell: list[Fraction] = []
+    for cell in cells:
+        durations = [
+            event.duration
+            for measure in cell.measures
+            if measure is not None
+            for event in _visual_events(measure)
+            if event.duration > 0
+        ]
+        if durations:
+            shortest_per_cell.append(min(durations))
+    if not shortest_per_cell:
+        return Fraction(1, 2)
+    counts = Counter(shortest_per_cell)
+    prevailing = min(counts, key=lambda value: (-counts[value], value))
+    return min(prevailing, Fraction(1, 2))
 
 
 def _common_shortest_duration(events: list[Event]) -> Fraction:
@@ -2808,9 +2859,10 @@ def _fixed_time_positions(
     right: float,
     measure: Measure,
     style: PublicationStyle,
+    *,
+    common_shortest: Fraction | None = None,
 ) -> list[float] | None:
-    """Justify a complete fixed-layout measure without moving shared onsets apart."""
-
+    """Justify fixed-layout events with shared nonlinear duration springs."""
     if not events or measure.duration <= 0:
         return None
     if any(event.start is None for event in events):
@@ -2823,8 +2875,8 @@ def _fixed_time_positions(
         measure.duration,
         max((event.start or Fraction(0)) + event.duration for event in events),
     )
-    # Underfull input keeps its nominal time positions; full-width justification
-    # would make a rhythm error look like intentional spacing.
+    # Underfull input keeps nominal time positions so a rhythm error does not
+    # look like intentional full-measure justification.
     if (
         max((event.start or Fraction(0)) + event.duration for event in events)
         < measure.duration
@@ -2835,40 +2887,140 @@ def _fixed_time_positions(
             for event in events
         ]
 
-    # Group simultaneous events first. Their combined optical extent is used by
-    # every part that reads the shared onset map.
-    onsets = sorted({event.start or Fraction(0) for event in events})
-    extents: list[tuple[float, float]] = []
-    for onset in onsets:
-        boxes = [
-            _event_visual_extents(
-                replace(event, lyric=None, lyrics={}, dynamic=None), style
-            )
-            for event in events
-            if (event.start or Fraction(0)) == onset
-        ]
-        extents.append((min(box[0] for box in boxes), max(box[1] for box in boxes)))
-
-    # The first and last note get a small optical clearance inside the content
-    # bounds. Lyrics are deliberately excluded so they cannot move time anchors.
-    first_clearance = style.event_clearance - extents[0][0]
-    last_clearance = style.event_clearance + extents[-1][1]
-    base_gaps = [
-        max(
-            0.0,
-            extents[index - 1][1] - extents[index][0] + style.event_clearance,
-        )
-        for index in range(1, len(onsets))
+    ordered = sorted(events, key=lambda event: event.start or Fraction(0))
+    onsets = sorted({event.start or Fraction(0) for event in ordered})
+    by_onset_events = [
+        [event for event in ordered if (event.start or Fraction(0)) == onset]
+        for onset in onsets
     ]
-    base_width = first_clearance + sum(base_gaps) + last_clearance
-    spare = max(0.0, right - left - base_width)
+    # Attachments participate in the shared hard floor. They can widen a time
+    # interval, but can never move just one voice away from the common onset.
+    extents: list[tuple[float, float]] = []
+    representatives: list[Event] = []
+    for onset, group in zip(onsets, by_onset_events, strict=True):
+        group_blocks = []
+        for block in measure.text_blocks:
+            if block.role != "lyric" or block.start is None:
+                continue
+            target = next(
+                (
+                    event
+                    for event in ordered
+                    if (event.start or Fraction(0))
+                    <= block.start
+                    < (event.start or Fraction(0)) + event.duration
+                ),
+                ordered[-1],
+            )
+            if (target.start or Fraction(0)) == onset:
+                group_blocks.append(block)
+        probe = Measure(
+            "onset",
+            duration=measure.duration,
+            events=group,
+            text_blocks=group_blocks,
+        )
+        boxes = _measure_event_visual_extents(group, probe, style)
+        extents.append((min(box[0] for box in boxes), max(box[1] for box in boxes)))
+        representatives.append(group[0])
 
-    # The tail's proportional share intentionally remains after the last event;
-    # distributing every interval to an event would incorrectly flush it right.
-    positions = [left + first_clearance + spare * float(onsets[0] / effective_duration)]
-    for index, gap in enumerate(base_gaps):
-        interval = float((onsets[index + 1] - onsets[index]) / effective_duration)
-        positions.append(positions[-1] + gap + spare * interval)
+    pad_left, pad_right = _rhythm_edge_padding(representatives, style)
+    first_clearance = style.event_clearance + pad_left - extents[0][0]
+    last_clearance = style.event_clearance + pad_right + extents[-1][1]
+    shortest = common_shortest or _common_shortest_duration(ordered)
+    boundaries = _beat_boundaries(measure)
+    subdivided = _subdivided_beat_crossings(representatives, boundaries)
+    # Uniform subdivisions stay exactly uniform so shared longer-note onsets keep
+    # their geometric midpoint. Mixed-duration crossings may use optical room.
+    fixed_beat_crossings = [
+        index > 0
+        and crosses
+        and onsets[index] - onsets[index - 1] != onsets[index + 1] - onsets[index]
+        for index, crosses in enumerate(subdivided)
+    ]
+    preferred_gaps: list[float] = []
+    spring_weights: list[float] = []
+    for index in range(1, len(onsets)):
+        previous = representatives[index - 1]
+        current = representatives[index]
+        delta = onsets[index] - onsets[index - 1]
+        spring = _duration_spring(delta, shortest, style)
+        if _same_tuplet_group(previous, current):
+            spring = max(18.0, style.minimum_event_gap * 0.72)
+        elif (
+            delta <= Fraction(1, 2)
+            and previous.kind == "note"
+            and current.kind == "note"
+        ):
+            spring *= style.short_note_gap_scale
+        collision = extents[index - 1][1] - extents[index][0] + style.event_clearance
+        boundary = (
+            0.0
+            if _same_tuplet_group(previous, current)
+            else _boundary_extra_gap(
+                previous, current, fixed_beat_crossings[index - 1], style
+            )
+        )
+        preferred_gaps.append(max(collision, spring) + boundary)
+        spring_weights.append(max(0.0, spring))
+
+    # A tuplet run is one optical unit: an attachment on one member expands every
+    # internal gap equally instead of making the run alternately tight and loose.
+    index = 0
+    while index < len(representatives) - 1:
+        tuplet_id = representatives[index].tuplet_id
+        if not tuplet_id:
+            index += 1
+            continue
+        end = index + 1
+        while (
+            end < len(representatives) and representatives[end].tuplet_id == tuplet_id
+        ):
+            end += 1
+        gap_end = end - 1
+        if gap_end > index:
+            uniform_gap = max(preferred_gaps[index:gap_end])
+            preferred_gaps[index:gap_end] = [uniform_gap] * (gap_end - index)
+        index = end
+
+    # Leading and tail intervals participate in justification. In particular, a
+    # late first onset must not collapse onto the left barline.
+    leading_duration = onsets[0]
+    leading_spring = (
+        _duration_spring(leading_duration, shortest, style)
+        if leading_duration > 0
+        else 0.0
+    )
+    tail_duration = effective_duration - onsets[-1]
+    tail_spring = (
+        _duration_spring(tail_duration, shortest, style) if tail_duration > 0 else 0.0
+    )
+    if (
+        tail_duration > 0
+        and tail_duration <= Fraction(1, 2)
+        and representatives[-1].kind == "note"
+    ):
+        tail_spring *= style.short_note_gap_scale
+    spring_weights = [max(0.0, leading_spring), *spring_weights, max(0.0, tail_spring)]
+    base_width = first_clearance + sum(preferred_gaps) + last_clearance
+    available = right - left
+    if base_width > available:
+        # Extreme attachments can exceed the fixed cell. Preserve the page bounds
+        # and nominal ordering; scene QA reports the unavoidable ink collisions.
+        positions = []
+        for onset in onsets:
+            ideal = left + available * float(onset / effective_duration)
+            positions.append(max(left, min(right, ideal)))
+
+    spare = available - base_width
+    weight_total = sum(spring_weights)
+    leading_extra = spare * spring_weights[0] / weight_total if weight_total else 0.0
+    positions = [left + first_clearance + leading_extra]
+    for index, gap in enumerate(preferred_gaps):
+        extra = (
+            spare * spring_weights[index + 1] / weight_total if weight_total else 0.0
+        )
+        positions.append(positions[-1] + gap + extra)
 
     by_onset = dict(zip(onsets, positions, strict=True))
     return [by_onset[event.start or Fraction(0)] for event in events]
@@ -2880,6 +3032,8 @@ def _event_positions(
     right: float,
     measure: Measure,
     style: PublicationStyle,
+    *,
+    common_shortest: Fraction | None = None,
 ) -> list[float]:
     ideal_positions = [
         _event_x(event, index, len(events), left, right, measure)
@@ -2888,7 +3042,9 @@ def _event_positions(
     if not ideal_positions:
         return ideal_positions
     if style.measures_per_system:
-        fixed_positions = _fixed_time_positions(events, left, right, measure, style)
+        fixed_positions = _fixed_time_positions(
+            events, left, right, measure, style, common_shortest=common_shortest
+        )
         if fixed_positions is not None:
             return fixed_positions
 
