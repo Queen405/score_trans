@@ -178,6 +178,50 @@ def test_update_page_replaces_jianpu_and_svg(tmp_path) -> None:
     )
 
 
+def test_update_page_replaces_rotated_input_and_preserves_source_metadata(
+    tmp_path,
+) -> None:
+    service = HistoryService(tmp_path / "history.db")
+    batch = service.create_batch(
+        [
+            HistoryPage(
+                input_file_name="score.png",
+                input_file_id="input-before",
+                source_document_file_id="source-pdf",
+                source_document_name="score.pdf",
+                source_page_index=2,
+                source_rotation=0,
+                jianpu_text="1 |",
+            )
+        ]
+    )
+    page_id = batch.pages[0].id
+
+    updated = service.update_page(
+        page_id,
+        input_file_name="score-rotated.png",
+        input_file_id="input-after",
+        source_rotation=90,
+    )
+
+    assert updated is not None
+    assert updated.input_file_name == "score-rotated.png"
+    assert updated.input_file_id == "input-after"
+    assert updated.source_rotation == 90
+    assert updated.source_document_file_id == "source-pdf"
+    assert updated.source_document_name == "score.pdf"
+    assert updated.source_page_index == 2
+
+    service.update_page(page_id, jianpu_text="2 |")
+    restored = service.get_batch(batch.id).pages[0]
+    assert restored.input_file_name == "score-rotated.png"
+    assert restored.input_file_id == "input-after"
+    assert restored.source_rotation == 90
+    assert restored.source_document_file_id == "source-pdf"
+    assert restored.source_document_name == "score.pdf"
+    assert restored.source_page_index == 2
+
+
 def test_update_page_persists_empty_deleted_source_ids(tmp_path) -> None:
     """B 方案：恢复全部后 deleted_source_ids=[] 必须能持久化并往返还原。"""
     service = HistoryService(tmp_path / "history.db")

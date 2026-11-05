@@ -58,61 +58,37 @@
         <settings-form-row
           :label="t('settings.tools.pdfDpiMode')"
         >
-          <n-radio-group
-            v-model:value="pdfDpiMode"
-            class="sv-theme-options"
-            size="small"
-          >
-            <n-radio-button value="auto">
+          <div class="sv-auto-number">
+            <n-checkbox v-model:checked="pdfDpiAuto">
               {{ t('settings.tools.pdfDpiAuto') }}
-            </n-radio-button>
-            <n-radio-button value="manual">
-              {{ t('settings.tools.pdfDpiManual') }}
-            </n-radio-button>
-          </n-radio-group>
-        </settings-form-row>
-
-        <settings-form-row
-          :label="t('settings.tools.pdfDpiValue')"
-        >
-          <n-input-number
-            v-model:value="manualPdfUploadDpi"
-            :min="72"
-            :max="600"
-            :step="1"
-            :disabled="pdfDpiMode === 'auto'"
-            size="small"
-          />
+            </n-checkbox>
+            <n-input-number
+              v-model:value="manualPdfUploadDpi"
+              :min="72"
+              :max="600"
+              :step="1"
+              :disabled="pdfDpiAuto"
+              size="small"
+            />
+          </div>
         </settings-form-row>
 
         <settings-form-row
           :label="t('settings.tools.binarizationMode')"
         >
-          <n-radio-group
-            v-model:value="binarizationMode"
-            class="sv-theme-options"
-            size="small"
-          >
-            <n-radio-button value="auto">
+          <div class="sv-auto-number">
+            <n-checkbox v-model:checked="binarizationAuto">
               {{ t('settings.tools.binarizationAuto') }}
-            </n-radio-button>
-            <n-radio-button value="manual">
-              {{ t('settings.tools.binarizationManual') }}
-            </n-radio-button>
-          </n-radio-group>
-        </settings-form-row>
-
-        <settings-form-row
-          :label="t('settings.tools.binarizationThreshold')"
-        >
-          <n-input-number
-            v-model:value="manualBinarizationThreshold"
-            :min="1"
-            :max="254"
-            :step="1"
-            :disabled="binarizationMode === 'auto'"
-            size="small"
-          />
+            </n-checkbox>
+            <n-input-number
+              v-model:value="manualBinarizationThreshold"
+              :min="1"
+              :max="254"
+              :step="1"
+              :disabled="binarizationAuto"
+              size="small"
+            />
+          </div>
         </settings-form-row>
 
         <settings-form-row
@@ -143,7 +119,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { NInput, NInputNumber, NRadioButton, NRadioGroup, NSwitch } from 'naive-ui'
+import { NCheckbox, NInput, NInputNumber, NRadioButton, NRadioGroup, NSwitch } from 'naive-ui'
 import { useSettingsStore } from '../../stores/settings'
 import { t } from '../../i18n'
 import SettingsFormRow from './SettingsFormRow.vue'
@@ -166,16 +142,16 @@ watch(
   { immediate: true },
 )
 
-const pdfDpiMode = computed<'auto' | 'manual'>({
-  get: () => settings.draft.pdfUploadDpi === 0 ? 'auto' : 'manual',
-  set: (mode) => {
-    settings.draft.pdfUploadDpi = mode === 'auto' ? 0 : lastManualPdfUploadDpi.value
+const pdfDpiAuto = computed<boolean>({
+  get: () => settings.draft.pdfUploadDpi === 0,
+  set: (automatic) => {
+    settings.draft.pdfUploadDpi = automatic ? 0 : lastManualPdfUploadDpi.value
   },
 })
 const manualPdfUploadDpi = computed<number>({
   get: () => settings.draft.pdfUploadDpi || lastManualPdfUploadDpi.value,
   set: (value: number | null) => {
-    if (value === null || pdfDpiMode.value === 'auto') return
+    if (value === null || pdfDpiAuto.value) return
     settings.draft.pdfUploadDpi = value
   },
 })
@@ -189,10 +165,10 @@ watch(
   { immediate: true },
 )
 
-const binarizationMode = computed<'auto' | 'manual'>({
-  get: () => settings.draft.audiverisBinarizationThreshold === 0 ? 'auto' : 'manual',
-  set: (mode) => {
-    settings.draft.audiverisBinarizationThreshold = mode === 'auto'
+const binarizationAuto = computed<boolean>({
+  get: () => settings.draft.audiverisBinarizationThreshold === 0,
+  set: (automatic) => {
+    settings.draft.audiverisBinarizationThreshold = automatic
       ? 0
       : lastManualBinarizationThreshold.value
   },
@@ -203,7 +179,7 @@ const manualBinarizationThreshold = computed<number>({
     || lastManualBinarizationThreshold.value
   ),
   set: (value: number | null) => {
-    if (value === null || binarizationMode.value === 'auto') return
+    if (value === null || binarizationAuto.value) return
     settings.draft.audiverisBinarizationThreshold = value
   },
 })
@@ -215,3 +191,20 @@ const maxPixelCountNumber = computed({
   },
 })
 </script>
+
+<style scoped>
+.sv-auto-number {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 560px;
+}
+
+.sv-auto-number .n-checkbox {
+  flex-shrink: 0;
+}
+
+.sv-auto-number .n-input-number {
+  flex: 1;
+}
+</style>

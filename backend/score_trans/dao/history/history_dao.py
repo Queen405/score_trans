@@ -4,6 +4,7 @@ import json
 import re
 import sqlite3
 from pathlib import Path
+from typing import Literal
 
 from ...models.common.paths import LEGACY_WORK_DIR, USER_WORK_DIR
 from ...models.history.entities import (
@@ -678,6 +679,9 @@ class HistoryDao:
         self,
         page_id: int,
         *,
+        input_file_name: str | None = None,
+        input_file_id: str | None = None,
+        source_rotation: Literal[0, 90, 180, 270] | None = None,
         task_id: str | None = None,
         jianpu_text: str | None = None,
         ocr_text: str | None = None,
@@ -704,6 +708,9 @@ class HistoryDao:
         updates: list[str] = []
         values: list[str | int | None] = []
         for field, value in (
+            ("input_file_name", input_file_name),
+            ("input_file_id", input_file_id),
+            ("source_rotation", source_rotation),
             ("task_id", task_id),
             ("jianpu_text", jianpu_text),
             ("ocr_text", ocr_text),

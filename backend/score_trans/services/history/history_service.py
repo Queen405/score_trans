@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 from ...dao.history.history_dao import HistoryDao
 from ...models.history.entities import (
@@ -137,6 +138,9 @@ class HistoryService:
         self,
         page_id: int,
         *,
+        input_file_name: str | None = None,
+        input_file_id: str | None = None,
+        source_rotation: Literal[0, 90, 180, 270] | None = None,
         task_id: str | None = None,
         jianpu_text: str | None = None,
         ocr_text: str | None = None,
@@ -162,6 +166,9 @@ class HistoryService:
     ) -> HistoryPage | None:
         return self.dao.update_page(
             page_id,
+            input_file_name=input_file_name,
+            input_file_id=input_file_id,
+            source_rotation=source_rotation,
             task_id=task_id,
             jianpu_text=jianpu_text,
             ocr_text=ocr_text,

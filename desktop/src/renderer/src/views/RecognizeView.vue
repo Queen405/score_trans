@@ -671,7 +671,15 @@ async function rotatePageImage(page: TaskPage, direction: ImageRotationDirection
       patch.originalFileId = result.file_id
       patch.originalFileName = result.filename
     }
+    if (page.historyPageId) {
+      await requireData(historyApi.updatePage(page.historyPageId, {
+        input_file_id: result.file_id,
+        input_file_name: result.filename,
+        source_rotation: patch.sourceRotation ?? page.sourceRotation,
+      }))
+    }
     store.patchPageById(page.id, patch)
+    if (page.historyPageId) notifyHistoryUpdated()
     const label = t(direction === 'left'
       ? 'recognize.uploads.rotateLeft'
       : 'recognize.uploads.rotateRight')

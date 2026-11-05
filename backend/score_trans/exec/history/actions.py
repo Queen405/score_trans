@@ -125,6 +125,9 @@ class HistoryActions:
             baseline_anchors = req.text_anchors
         page = self.service.update_page(
             page_id,
+            input_file_name=req.input_file_name,
+            input_file_id=req.input_file_id,
+            source_rotation=req.source_rotation,
             task_id=req.task_id,
             musicxml_file_id=req.musicxml_file_id,
             jianpu_text=req.jianpu_text if req.jianpu_text is not None else None,

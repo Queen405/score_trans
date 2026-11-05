@@ -2609,6 +2609,10 @@ export type components = {
             engine_version?: string | null;
             /** Error Message */
             error_message?: string | null;
+            /** Input File Id */
+            input_file_id?: string | null;
+            /** Input File Name */
+            input_file_name?: string | null;
             /** Jianpu Text */
             jianpu_text?: string | null;
             /** Musicxml File Id */
@@ -2629,6 +2633,8 @@ export type components = {
             } | null;
             /** Source Map File Id */
             source_map_file_id?: string | null;
+            /** Source Rotation */
+            source_rotation?: (0 | 90 | 180 | 270) | null;
             /** Status */
             status?: string | null;
             /** Svg File Id */

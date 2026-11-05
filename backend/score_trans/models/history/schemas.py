@@ -40,6 +40,9 @@ class PageCreate(BaseModel):
 
 
 class PageUpdate(BaseModel):
+    input_file_name: str | None = None
+    input_file_id: str | None = None
+    source_rotation: Literal[0, 90, 180, 270] | None = None
     task_id: str | None = None
     musicxml_file_id: str | None = None
     jianpu_text: str | None = None

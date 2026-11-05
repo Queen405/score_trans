@@ -957,6 +957,57 @@ def test_history_list_returns_last_completed_at(tmp_path: Path) -> None:
     assert response.json()[0]["last_completed_at"] == completed_at
 
 
+def test_history_page_update_persists_rotated_input(tmp_path: Path) -> None:
+    app = create_app()
+    service = HistoryService(tmp_path / "history.db")
+    app.dependency_overrides[get_history_actions] = lambda: HistoryActions(service)
+    client = TestClient(app)
+
+    created = client.post(
+        "/history",
+        json={
+            "pages": [
+                {
+                    "input_file_name": "score.png",
+                    "input_file_id": "input-before",
+                    "source_document_file_id": "source-pdf",
+                    "source_document_name": "score.pdf",
+                    "source_page_index": 1,
+                    "source_rotation": 0,
+                }
+            ]
+        },
+    )
+    page_id = created.json()["pages"][0]["id"]
+
+    updated = client.patch(
+        f"/history/pages/{page_id}",
+        json={
+            "input_file_name": "score-rotated.png",
+            "input_file_id": "input-after",
+            "source_rotation": 270,
+        },
+    )
+
+    assert updated.status_code == 200
+    page = updated.json()
+    assert page["input_file_name"] == "score-rotated.png"
+    assert page["input_file_id"] == "input-after"
+    assert page["source_rotation"] == 270
+    assert page["source_document_file_id"] == "source-pdf"
+    assert page["source_document_name"] == "score.pdf"
+    assert page["source_page_index"] == 1
+
+    invalid = client.patch(
+        f"/history/pages/{page_id}",
+        json={"source_rotation": 45},
+    )
+    assert invalid.status_code == 422
+    restored = service.get_page(page_id)
+    assert restored is not None
+    assert restored.source_rotation == 270
+
+
 def test_batch_a4_schema_exposes_page_ranges_and_page_ocr_texts() -> None:
     schemas = create_app().openapi()["components"]["schemas"]
 
