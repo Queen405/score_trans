@@ -276,7 +276,13 @@ def test_pdf_page_preview_rejects_invalid_page_and_non_pdf(tmp_path: Path) -> No
         actions.render_pdf_page(png_id, page_index=0, target_width=600, rotation=0)
 
 
-def test_upload_pdf_still_returns_page_pngs(monkeypatch, tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("configured_dpi", "expected_dpi"),
+    [(0, UPLOAD_PDF_DPI), (144, 144)],
+)
+def test_upload_pdf_uses_automatic_or_manual_dpi(
+    monkeypatch, tmp_path: Path, configured_dpi: int, expected_dpi: int
+) -> None:
     seen_dpi: list[int] = []
 
     class FakePixmap:
@@ -310,7 +316,9 @@ def test_upload_pdf_still_returns_page_pngs(monkeypatch, tmp_path: Path) -> None
         SimpleNamespace(open=lambda _path: FakeDocument()),
     )
 
-    uploads = UploadService(ToolConfig(work_dir=tmp_path))
+    uploads = UploadService(
+        ToolConfig(work_dir=tmp_path, pdf_upload_dpi=configured_dpi)
+    )
     actions = FileActions(uploads)
     upload = UploadFile(file=BytesIO(b"%PDF-1.4"), filename="score.pdf")
 
@@ -322,7 +330,7 @@ def test_upload_pdf_still_returns_page_pngs(monkeypatch, tmp_path: Path) -> None
         "score_page_001.png",
         "score_page_002.png",
     ]
-    assert seen_dpi == [UPLOAD_PDF_DPI, UPLOAD_PDF_DPI]
+    assert seen_dpi == [expected_dpi, expected_dpi]
     for page in response.pages:
         path = uploads.get_path(page.file_id)
         assert path is not None

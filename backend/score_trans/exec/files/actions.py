@@ -8,6 +8,7 @@ from score_trans.config.settings import UPLOAD_PDF_DPI
 from ...models.common.protocols import UploadFileLike
 from ...models.files.schemas import FilesExistResponse, UploadPage, UploadResponse
 from ...services.files.upload_service import UploadService
+from ...services.settings.settings_service import SettingsService
 
 
 MEDIA_TYPES: dict[str, str] = {
@@ -34,8 +35,13 @@ _PDF_PREVIEW_MAX_DPI = 600
 
 
 class FileActions:
-    def __init__(self, uploads: UploadService | None = None) -> None:
+    def __init__(
+        self,
+        uploads: UploadService | None = None,
+        settings: SettingsService | None = None,
+    ) -> None:
         self.uploads = uploads or UploadService()
+        self.settings = settings
 
     def upload_file(self, file: UploadFileLike) -> UploadResponse:
         if not file.filename:
@@ -60,12 +66,14 @@ class FileActions:
             raise RuntimeError("PDF 页面转换依赖不可用") from exc
 
         try:
+            config = self.settings.load() if self.settings else self.uploads.config
+            dpi = config.pdf_upload_dpi or UPLOAD_PDF_DPI
             doc = fitz.open(str(pdf_path))
             pages: list[UploadPage] = []
             stem = pdf_path.stem
             for i in range(len(doc)):
                 page = doc.load_page(i)
-                pix = page.get_pixmap(dpi=UPLOAD_PDF_DPI)
+                pix = page.get_pixmap(dpi=dpi)
                 img_filename = f"{stem}_page_{i + 1:03d}.png"
                 img_path = pdf_path.parent / img_filename
                 pix.save(str(img_path))

@@ -123,6 +123,7 @@ class SettingsService:
             audiveris_binarization_threshold=self.dao.get_int(
                 "audiveris_binarization_threshold", AUDIVERIS_BINARIZATION_THRESHOLD
             ),
+            pdf_upload_dpi=self.dao.get_int("pdf_upload_dpi", 0),
             audiveris_auto_upscale=self.dao.get_bool(
                 "audiveris_auto_upscale", AUDIVERIS_AUTO_UPSCALE
             ),

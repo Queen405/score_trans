@@ -4,6 +4,7 @@
         "audiveris_max_heap": "3g",
         "audiveris_max_pixel_count": "20000000",
         "audiveris_binarization_threshold": "0",
+        "pdf_upload_dpi": "0",
         "audiveris_auto_upscale": "1",
         "audiveris_min_image_edge": "2500",
         "target_key": "auto",

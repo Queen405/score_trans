@@ -72,6 +72,9 @@ class SettingsActions:
                 str(req.audiveris_binarization_threshold),
             )
 
+        if req.pdf_upload_dpi is not None:
+            self.service.set("pdf_upload_dpi", str(req.pdf_upload_dpi))
+
         if req.audiveris_auto_upscale is not None:
             self.service.set(
                 "audiveris_auto_upscale",
@@ -323,6 +326,7 @@ class SettingsActions:
             audiveris_binarization_threshold=self.service.get_int(
                 "audiveris_binarization_threshold", 0
             ),
+            pdf_upload_dpi=self.service.get_int("pdf_upload_dpi", 0),
             audiveris_auto_upscale=self.service.get_bool(
                 "audiveris_auto_upscale", True
             ),

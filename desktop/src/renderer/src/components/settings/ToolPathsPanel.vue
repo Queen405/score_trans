@@ -56,6 +56,36 @@
         </settings-form-row>
 
         <settings-form-row
+          :label="t('settings.tools.pdfDpiMode')"
+        >
+          <n-radio-group
+            v-model:value="pdfDpiMode"
+            class="sv-theme-options"
+            size="small"
+          >
+            <n-radio-button value="auto">
+              {{ t('settings.tools.pdfDpiAuto') }}
+            </n-radio-button>
+            <n-radio-button value="manual">
+              {{ t('settings.tools.pdfDpiManual') }}
+            </n-radio-button>
+          </n-radio-group>
+        </settings-form-row>
+
+        <settings-form-row
+          :label="t('settings.tools.pdfDpiValue')"
+        >
+          <n-input-number
+            v-model:value="manualPdfUploadDpi"
+            :min="72"
+            :max="600"
+            :step="1"
+            :disabled="pdfDpiMode === 'auto'"
+            size="small"
+          />
+        </settings-form-row>
+
+        <settings-form-row
           :label="t('settings.tools.binarizationMode')"
         >
           <n-radio-group
@@ -126,6 +156,29 @@ const heapOptions = [
   { label: '3G', value: '3g' },
   { label: '4G', value: '4g' },
 ]
+
+const lastManualPdfUploadDpi = ref(300)
+watch(
+  () => settings.draft.pdfUploadDpi,
+  (value) => {
+    if (value > 0) lastManualPdfUploadDpi.value = value
+  },
+  { immediate: true },
+)
+
+const pdfDpiMode = computed<'auto' | 'manual'>({
+  get: () => settings.draft.pdfUploadDpi === 0 ? 'auto' : 'manual',
+  set: (mode) => {
+    settings.draft.pdfUploadDpi = mode === 'auto' ? 0 : lastManualPdfUploadDpi.value
+  },
+})
+const manualPdfUploadDpi = computed<number>({
+  get: () => settings.draft.pdfUploadDpi || lastManualPdfUploadDpi.value,
+  set: (value: number | null) => {
+    if (value === null || pdfDpiMode.value === 'auto') return
+    settings.draft.pdfUploadDpi = value
+  },
+})
 
 const lastManualBinarizationThreshold = ref(210)
 watch(

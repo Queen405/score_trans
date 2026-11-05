@@ -12,6 +12,7 @@ _BACKEND_STRING_KEYS: tuple[str, ...] = (
     "audiveris_max_heap",
     "audiveris_max_pixel_count",
     "audiveris_binarization_threshold",
+    "pdf_upload_dpi",
     "audiveris_auto_upscale",
     "audiveris_min_image_edge",
     "target_key",

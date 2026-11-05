@@ -436,6 +436,15 @@ def test_audiveris_binarization_threshold_defaults_and_persists(tmp_path) -> Non
     assert service.load().audiveris_binarization_threshold == 210
 
 
+def test_pdf_upload_dpi_defaults_and_persists(tmp_path) -> None:
+    dao = SettingsDao(tmp_path / "settings.db", defaults=settings_defaults())
+    service = SettingsService(dao)
+
+    assert service.load().pdf_upload_dpi == 0
+    dao.set("pdf_upload_dpi", "400")
+    assert service.load().pdf_upload_dpi == 400
+
+
 def test_old_default_audiveris_pixel_budget_migrates_only_once(tmp_path) -> None:
     db_path = tmp_path / "settings.db"
     original = SettingsDao(

@@ -46,7 +46,10 @@ def get_export_actions() -> ExportActions:
 
 
 def get_file_actions() -> FileActions:
-    return FileActions(uploads=composition.shared_uploads())
+    return FileActions(
+        uploads=composition.shared_uploads(),
+        settings=composition.shared_settings_service(),
+    )
 
 
 def get_history_actions() -> HistoryActions:

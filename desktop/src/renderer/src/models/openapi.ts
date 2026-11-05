@@ -3624,6 +3624,11 @@ export type components = {
              */
             output_dir?: string;
             /**
+             * Pdf Upload Dpi
+             * @default 0
+             */
+            pdf_upload_dpi?: number;
+            /**
              * Polyphony Mode
              * @default auto
              * @enum {string}
@@ -3736,6 +3741,8 @@ export type components = {
             ocr_provider?: string | null;
             /** Output Dir */
             output_dir?: string | null;
+            /** Pdf Upload Dpi */
+            pdf_upload_dpi?: number | null;
             /** Polyphony Mode */
             polyphony_mode?: ("auto" | "preserve" | "flatten") | null;
             /** Show Measure Numbers */

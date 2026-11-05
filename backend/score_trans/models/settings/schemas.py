@@ -59,6 +59,7 @@ class SettingsResponse(BaseModel):
     audiveris_max_heap: str = "3g"
     audiveris_max_pixel_count: str = "20000000"
     audiveris_binarization_threshold: int = 0
+    pdf_upload_dpi: int = 0
     audiveris_auto_upscale: bool = True
     audiveris_min_image_edge: int = 2500
     data_dir: str
@@ -121,6 +122,7 @@ class SettingsUpdateRequest(BaseModel):
     audiveris_max_heap: Literal["1g", "2g", "3g", "4g"] | None = None
     audiveris_max_pixel_count: str | None = None
     audiveris_binarization_threshold: int | None = Field(default=None, ge=0, le=254)
+    pdf_upload_dpi: int | None = Field(default=None, ge=0, le=600)
     audiveris_auto_upscale: bool | None = None
     audiveris_min_image_edge: int | None = Field(default=None, ge=0, le=10000)
     output_dir: str | None = None
@@ -184,6 +186,13 @@ class SettingsUpdateRequest(BaseModel):
     assistant_api_key: str | None = None
     assistant_base_url: str | None = Field(default=None, max_length=2048)
     assistant_model: str | None = Field(default=None, max_length=256)
+
+    @field_validator("pdf_upload_dpi")
+    @classmethod
+    def validate_pdf_upload_dpi(cls, value: int | None) -> int | None:
+        if value is not None and value != 0 and value < 72:
+            raise ValueError("PDF DPI 必须为 0（自动）或 72–600")
+        return value
 
     @field_validator(
         "ocr_base_url",

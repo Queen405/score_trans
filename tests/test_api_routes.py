@@ -796,6 +796,25 @@ def test_settings_persist_audiveris_binarization_threshold(tmp_path: Path) -> No
     )
 
 
+def test_settings_persist_pdf_upload_dpi(tmp_path: Path) -> None:
+    app = create_app()
+    service = SettingsService(SettingsDao(tmp_path / "settings.db"))
+    app.dependency_overrides[get_settings_actions] = lambda: SettingsActions(service)
+    client = TestClient(app)
+
+    assert client.get("/settings").json()["pdf_upload_dpi"] == 0
+    updated = client.put("/settings", json={"pdf_upload_dpi": 400})
+    assert updated.status_code == 200
+    assert updated.json()["pdf_upload_dpi"] == 400
+    assert service.load().pdf_upload_dpi == 400
+    assert (
+        client.put("/settings", json={"pdf_upload_dpi": 0}).json()["pdf_upload_dpi"]
+        == 0
+    )
+    assert client.put("/settings", json={"pdf_upload_dpi": 71}).status_code == 422
+    assert client.put("/settings", json={"pdf_upload_dpi": 601}).status_code == 422
+
+
 def test_jianpu_text_svg_request_accepts_page_image_for_ocr_overlay() -> None:
     schema = create_app().openapi()["components"]["schemas"][
         "RenderJianpuTextSvgRequest"
