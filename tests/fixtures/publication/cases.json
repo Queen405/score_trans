@@ -1,0 +1,33 @@
+[
+  {
+    "name": "melody",
+    "path": "melody.jianpu",
+    "measures_per_system": 4
+  },
+  {
+    "name": "lyrics-zh",
+    "path": "lyrics-zh.jianpu",
+    "measures_per_system": 4
+  },
+  {
+    "name": "lyrics-mixed",
+    "path": "lyrics-mixed.jianpu",
+    "measures_per_system": 4
+  },
+  {
+    "name": "dense-rhythm",
+    "path": "dense-rhythm.jianpu",
+    "measures_per_system": 4
+  },
+  {
+    "name": "multi-part",
+    "path": "multi-part.jianpu",
+    "measures_per_system": 4
+  },
+  {
+    "name": "multipage-marks",
+    "path": "../bach_playback_pages.jianpu",
+    "measures_per_system": 4,
+    "min_pages": 2
+  }
+]

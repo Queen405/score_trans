@@ -1,0 +1,9 @@
+title=出版基准·多声部
+// @part 1 name="Piano(staff 1)"
+1=F
+3/4
+q1 q2 q3 | q4 q5 q6 | q1' q7 q6 | h5 q4 | q3 q2 q1 | w1 |
+// @part 2 name="Piano(staff 2)"
+1=F
+3/4
+q1, q3, q5, | h2, q2, | q3, q4, q5, | h1, q1, | q2, q3, q4, | w1, |
