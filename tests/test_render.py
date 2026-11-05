@@ -757,7 +757,11 @@ def test_accidental_has_clearance_from_its_note() -> None:
     accidental_width = font_registry().measure(
         "♯", float(accidental.attrib["data-font-size"])
     )
-    note_width = font_registry().measure("3", float(note.attrib["data-font-size"]))
+    note_width = font_registry().measure(
+        "3",
+        float(note.attrib["data-font-size"]),
+        int(note.attrib["data-font-weight"]),
+    )
 
     clearance = PublicationStyle().accidental_clearance
     assert accidental_x + accidental_width / 2 + clearance <= note_x - note_width / 2
@@ -2397,7 +2401,7 @@ def test_a4_content_scale_preserves_page_and_scales_render_metadata(
     title = next(
         node for node in content.iter() if node.attrib.get("class") == "score-title"
     )
-    assert float(title.attrib["data-font-size"]) == pytest.approx(26.8)
+    assert float(title.attrib["data-font-size"]) == pytest.approx(33.5)
     note = next(
         node
         for node in content.iter()
@@ -3670,10 +3674,10 @@ def test_fixed_mode_lyrics_follow_strict_anchors_without_moving_notes() -> None:
 
     assert positions == pytest.approx([100, 200])
     assert layouts[0].bbox.x - font_registry().ink_bounds(
-        layouts[0].text, layouts[0].font_size
+        layouts[0].text, layouts[0].font_size, 500
     )[0] == pytest.approx(100)
     assert layouts[1].bbox.x - font_registry().ink_bounds(
-        layouts[1].text, layouts[1].font_size
+        layouts[1].text, layouts[1].font_size, 500
     )[0] == pytest.approx(200)
 
 
@@ -4150,7 +4154,7 @@ def test_a4_typography_controls_scale_independent_text_roles() -> None:
 
     assert font_size("note") == pytest.approx(36)
     assert font_size("lyric") == pytest.approx(14.4)
-    assert font_size("score-title") == pytest.approx(52)
+    assert font_size("score-title") == pytest.approx(65)
     assert font_size("dynamic") == pytest.approx(16.5)
     assert font_size("measure-no") == pytest.approx(16.5)
 

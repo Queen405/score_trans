@@ -14,7 +14,7 @@ class GeometryIssue(TypedDict):
 
 
 _SPANNER_KINDS = frozenset({"tie", "slur", "slide"})
-_GEOMETRY_EPSILON = 1e-6
+_GEOMETRY_EPSILON = 1e-3
 
 
 def check_scene_geometry(

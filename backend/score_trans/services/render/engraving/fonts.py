@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 _FONT_DIR = Path(__file__).resolve().parents[3] / "assets" / "fonts"
 _FONT_FILES = {
     "text": (
-        _FONT_DIR / "NotoSerifCJKsc-Regular.otf",
-        "2a2eae2628df83556c54018c41e20fa532c1b862c5256ae8b3f23feb918d12ca",
+        _FONT_DIR / "NotoSerifSC-VF.ttf",
+        "050080d9255a86808f2945bffac582b31ef32bc36411ce29563b4961670c66f9",
     ),
     "music": (
         _FONT_DIR / "Bravura.otf",
@@ -37,6 +37,7 @@ class FontRegistry:
     def __init__(self) -> None:
         self._fonts: dict[str, TTFont] = {}
         self._cmaps: dict[str, dict[int, str]] = {}
+        self._glyph_sets: dict[tuple[str, int], object] = {}
         for role, (path, expected_hash) in _FONT_FILES.items():
             if not path.is_file():
                 raise RuntimeError(f"缺少出版字体资产：{path}")
@@ -55,12 +56,12 @@ class FontRegistry:
         return digest.hexdigest()
 
     @lru_cache(maxsize=8192)
-    def measure(self, text: str, font_size: float) -> float:
-        return sum(self._advance_em(char) for char in text) * font_size
+    def measure(self, text: str, font_size: float, weight: int = 400) -> float:
+        return sum(self._advance_em(char, weight) for char in text) * font_size
 
     @lru_cache(maxsize=8192)
     def ink_bounds(
-        self, text: str, font_size: float
+        self, text: str, font_size: float, weight: int = 400
     ) -> tuple[float, float, float, float]:
         """Return text ink bounds relative to its start baseline.
 
@@ -78,7 +79,7 @@ class FontRegistry:
             try:
                 role, glyph_name = self._glyph(char)
                 font = self._fonts[role]
-                glyph_set = font.getGlyphSet()
+                glyph_set = self._glyph_set(role, weight)
                 pen = BoundsPen(glyph_set)
                 glyph_set[glyph_name].draw(pen)
                 if pen.bounds is not None:
@@ -106,7 +107,7 @@ class FontRegistry:
                     f"FontTools failed to draw glyph {char!r} (U+{ord(char):04X}), "
                     f"using fallback bounds (0, 0, 0, 0)"
                 )
-            cursor_em += self._advance_em(char)
+            cursor_em += self._advance_em(char, weight)
         if left_em is None:
             return (0.0, 0.0, 0.0, 0.0)
         return (
@@ -117,7 +118,9 @@ class FontRegistry:
         )
 
     @lru_cache(maxsize=8192)
-    def paths(self, text: str) -> tuple[tuple[GlyphPath, ...], float]:
+    def paths(
+        self, text: str, weight: int = 400
+    ) -> tuple[tuple[GlyphPath, ...], float]:
         cursor = 0.0
         result: list[GlyphPath] = []
         for char in text:
@@ -125,9 +128,10 @@ class FontRegistry:
                 role, glyph_name = self._glyph(char)
                 font = self._fonts[role]
                 units_per_em = int(font["head"].unitsPerEm)
-                advance, _ = font["hmtx"][glyph_name]
-                pen = SVGPathPen(font.getGlyphSet())
-                font.getGlyphSet()[glyph_name].draw(pen)
+                glyph_set = self._glyph_set(role, weight)
+                advance = glyph_set[glyph_name].width
+                pen = SVGPathPen(glyph_set)
+                self._glyph_set(role, weight)[glyph_name].draw(pen)
                 path = pen.getCommands()
                 if path:
                     result.append(GlyphPath(path, cursor, units_per_em))
@@ -140,11 +144,21 @@ class FontRegistry:
                 continue
         return tuple(result), cursor
 
-    def _advance_em(self, char: str) -> float:
+    def _glyph_set(self, role: str, weight: int):
+        weight = max(200, min(900, weight))
+        key = (role, weight)
+        if key not in self._glyph_sets:
+            font = self._fonts[role]
+            self._glyph_sets[key] = font.getGlyphSet(
+                location={"wght": weight} if role == "text" else None
+            )
+        return self._glyph_sets[key]
+
+    def _advance_em(self, char: str, weight: int = 400) -> float:
         try:
             role, glyph_name = self._glyph(char)
             font = self._fonts[role]
-            advance, _ = font["hmtx"][glyph_name]
+            advance = self._glyph_set(role, weight)[glyph_name].width
             return advance / int(font["head"].unitsPerEm)
         except AssertionError:
             # Return a reasonable default advance when fontTools fails
@@ -178,3 +192,25 @@ def reset_font_registry_cache() -> None:
     Used when font loading errors occur due to cached corrupted state.
     """
     font_registry.cache_clear()
+
+
+_ROLE_WEIGHTS = {
+    "note": 500,
+    "score-title": 700,
+    "score-meta": 500,
+    "part-name": 500,
+    "measure-no": 500,
+    "repeat-count": 500,
+    "page-number": 400,
+    "lyric": 500,
+    "annotation": 400,
+    "measure-attribute": 500,
+}
+
+
+def publication_text_weight(classes: str) -> int:
+    """Return the built-in type weight for a publication scene class list."""
+    return next(
+        (weight for name in classes.split() if (weight := _ROLE_WEIGHTS.get(name))),
+        400,
+    )

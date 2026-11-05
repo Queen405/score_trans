@@ -1,12 +1,18 @@
 {
-  "version": 1,
+  "version": 2,
   "fonts": [
     {
-      "file": "NotoSerifCJKsc-Regular.otf",
-      "family": "Noto Serif CJK SC",
+      "file": "NotoSerifSC-VF.ttf",
+      "family": "Noto Serif SC",
       "version": "2.003",
-      "sha256": "2a2eae2628df83556c54018c41e20fa532c1b862c5256ae8b3f23feb918d12ca",
-      "license": "OFL-NotoSerifCJK.txt"
+      "sha256": "050080d9255a86808f2945bffac582b31ef32bc36411ce29563b4961670c66f9",
+      "license": "OFL-NotoSerifCJK.txt",
+      "variableAxes": {
+        "wght": [
+          200,
+          900
+        ]
+      }
     },
     {
       "file": "Bravura.otf",

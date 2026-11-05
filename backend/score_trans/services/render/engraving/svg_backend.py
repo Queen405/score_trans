@@ -4,15 +4,15 @@ import re
 from html import escape
 
 from ....models.render.layout import PUBLICATION_ENGINE_VERSION
-from .fonts import font_registry
+from .fonts import font_registry, publication_text_weight
 from .scene import PublicationScene, SceneNode
 from .style import PublicationStyle
 
 _CSS = """
-.page-background{fill:#fff}.score-title{font-weight:600;letter-spacing:.08em}
+.page-background{fill:#fff}.score-title{font-weight:700;letter-spacing:.08em}
 .score-meta,.measure-attribute,.part-name,.measure-no,.repeat-count,.annotation,.lyric{fill:#181818}
 .note,.accidental,.score-title,.score-meta,.part-name,.measure-no,.repeat-count,.annotation,.lyric,.tuplet-number,.dynamic,.technique{font-family:ScoreTransNotoSerif,serif}
-.music-symbol{font-family:ScoreTransBravura,serif}.note{font-weight:600}
+.music-symbol{font-family:ScoreTransBravura,serif}.note{font-weight:500}
 .measure,.system-bracket,.duration-line,.beam-line,.extension-line,.ending-line,.ending-hook,.repeat-dot,.staff-line{stroke:#171717;fill:none;stroke-linecap:round}
 .tie,.slur,.slide{stroke:#171717;stroke-width:1.8;fill:none;stroke-linecap:round}.tie{fill:#171717;stroke:none}
 .performance-mark-stroke{stroke:#171717;fill:none;stroke-linecap:round;stroke-linejoin:round}
@@ -115,7 +115,8 @@ def _node_to_svg(node: SceneNode, indent: int, metadata_scale: float) -> str:
     y = float(node.attrs.get("y", 0))
     size = float(node.attrs.get("font-size", 16))
     anchor = str(node.attrs.get("text-anchor", "start"))
-    glyphs, advance = font_registry().paths(node.text)
+    weight = publication_text_weight(str(node.attrs.get("class", "")))
+    glyphs, advance = font_registry().paths(node.text, weight)
     offset = (
         -advance / 2 if anchor == "middle" else (-advance if anchor == "end" else 0.0)
     )
@@ -126,6 +127,7 @@ def _node_to_svg(node: SceneNode, indent: int, metadata_scale: float) -> str:
     }
     group_attrs["aria-label"] = node.text
     group_attrs["data-font-size"] = size * metadata_scale
+    group_attrs["data-font-weight"] = weight
     group_attrs["transform"] = (
         f"translate({x:g} {y:g}) scale({size:g} {-size:g}) translate({offset:g} 0)"
     )

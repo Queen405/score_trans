@@ -17,11 +17,11 @@ class PublicationStyle:
     footer_reserved: float = 28.0
     # Small tolerance for rounding and dense-system packing at the page edge.
     pagination_bottom_allowance: float = 10.0
-    title_size: float = 40.0
+    title_size: float = 50.0
     meta_size: float = 20.0
     part_name_size: float = 18.0
     note_size: float = 30.0
-    accidental_size: float = 18.0
+    accidental_size: float = 20.0
     lyric_size: float = 18.0
     annotation_size: float = 15.0
     measure_number_size: float = 15.0

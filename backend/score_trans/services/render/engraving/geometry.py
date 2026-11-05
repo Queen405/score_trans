@@ -72,22 +72,22 @@ def _empty_box() -> InkBox:
     return InkBox(0.0, 0.0, 0.0, 0.0)
 
 
-def _centered_text_box(value: str, size: float) -> InkBox:
+def _centered_text_box(value: str, size: float, weight: int = 400) -> InkBox:
     registry = font_registry()
-    left, top, right, bottom = registry.ink_bounds(value, size)
-    advance = registry.measure(value, size)
+    left, top, right, bottom = registry.ink_bounds(value, size, weight)
+    advance = registry.measure(value, size, weight)
     return InkBox(left - advance / 2, top, right - advance / 2, bottom)
 
 
-def _left_aligned_text_box(value: str, size: float) -> InkBox:
+def _left_aligned_text_box(value: str, size: float, weight: int = 500) -> InkBox:
     """Text ink box starting at the origin and extending rightward by advance.
 
     Used for left-aligned lyrics whose left edge sits at the note centre
     rather than being centred on it.
     """
     registry = font_registry()
-    left, top, _right, bottom = registry.ink_bounds(value, size)
-    advance = registry.measure(value, size)
+    left, top, _right, bottom = registry.ink_bounds(value, size, weight)
+    advance = registry.measure(value, size, weight)
     return InkBox(left, top, advance, bottom)
 
 
@@ -110,7 +110,9 @@ def pitch_layouts(event: Event, style: PublicationStyle) -> tuple[PitchLayout, .
     def build(row_offsets: list[float]) -> list[PitchLayout]:
         note_boxes = [
             _translated(
-                _centered_text_box(str(max(0, min(7, pitch.degree))), style.note_size),
+                _centered_text_box(
+                    str(max(0, min(7, pitch.degree))), style.note_size, 500
+                ),
                 0.0,
                 row_y,
             )
@@ -126,7 +128,7 @@ def pitch_layouts(event: Event, style: PublicationStyle) -> tuple[PitchLayout, .
             accidental = _accidental_text(pitch)
             if accidental:
                 accidental_rel = _centered_text_box(accidental, style.accidental_size)
-                note_advance = font_registry().measure(value, style.note_size)
+                note_advance = font_registry().measure(value, style.note_size, 500)
                 accidental_advance = font_registry().measure(
                     accidental, style.accidental_size
                 )
@@ -273,7 +275,7 @@ def _below_right_anchors(
     """
 
     if not rows:
-        rest_box = _centered_text_box("0", style.note_size)
+        rest_box = _centered_text_box("0", style.note_size, 500)
         anchors = [(rest_box.right, rest_box.bottom)]
     else:
         anchors = []
@@ -512,7 +514,7 @@ def measure_event_layout(
         for row in pitch_rows:
             parts.append(VisualPart("note", row.note_box))
     else:
-        parts.append(VisualPart("note", _centered_text_box("0", style.note_size)))
+        parts.append(VisualPart("note", _centered_text_box("0", style.note_size, 500)))
 
     box = _empty_box()
     for part in parts:

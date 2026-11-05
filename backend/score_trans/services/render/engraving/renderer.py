@@ -41,7 +41,7 @@ from ....models.score import (
     TextBlock,
     TupletSpan,
 )
-from .fonts import font_registry
+from .fonts import font_registry, publication_text_weight
 from .geometry import (
     MarkLayout,
     _duration_extension_start,
@@ -1252,9 +1252,9 @@ def _lyric_intrinsic_measure_width(measure: Measure, style: PublicationStyle) ->
         for block in groups[start]:
             font_size = block.font_size or style.lyric_size
             ink_left, _top, _right, _bottom = font_registry().ink_bounds(
-                block.text, font_size
+                block.text, font_size, 500
             )
-            advance = font_registry().measure(block.text, font_size)
+            advance = font_registry().measure(block.text, font_size, 500)
             boxes.append((ink_left, ink_left + advance))
         measured.append(
             (
@@ -1862,9 +1862,9 @@ def _measure_event_visual_extents(
             )
         font_size = block.font_size or style.lyric_size
         ink_left, top, _right, bottom = font_registry().ink_bounds(
-            block.text, font_size
+            block.text, font_size, 500
         )
-        advance = font_registry().measure(block.text, font_size)
+        advance = font_registry().measure(block.text, font_size, 500)
         left, right, old_top, old_bottom = extents[target]
         extents[target] = (
             min(left, ink_left),
@@ -3554,13 +3554,13 @@ def _draw_pitch(
         registry = font_registry()
         note_value = str(max(0, min(7, pitch.degree)))
         note_left, note_top, _note_right, _note_bottom = registry.ink_bounds(
-            note_value, style.note_size
+            note_value, style.note_size, 500
         )
-        note_left -= registry.measure(note_value, style.note_size) / 2
+        note_left -= registry.measure(note_value, style.note_size, 500) / 2
         _acc_left, _acc_top, accidental_right, accidental_bottom = registry.ink_bounds(
             accidental, style.accidental_size
         )
-        note_advance = registry.measure(note_value, style.note_size)
+        note_advance = registry.measure(note_value, style.note_size, 500)
         accidental_advance = registry.measure(accidental, style.accidental_size)
         accidental_right -= accidental_advance / 2
         accidental_bottom_target = y + note_top + 3.0
@@ -4553,9 +4553,9 @@ def _measure_text_layout(
             style.lyric_size if block.role == "lyric" else style.annotation_size
         )
         ink_left, ink_top, ink_right, ink_bottom = font_registry().ink_bounds(
-            block.text, font_size
+            block.text, font_size, 500
         )
-        advance = font_registry().measure(block.text, font_size)
+        advance = font_registry().measure(block.text, font_size, 500)
         if block.start is not None and event_spans:
             # 歌词词元附着在覆盖其 start 的事件上（与 _apply_lyrics 一致），
             # 查跨度表即精确对齐；落入间隙的注解块走相邻事件线性插值。
@@ -4578,7 +4578,7 @@ def _measure_text_layout(
             verse = block.lyric_verse or 1
             if verse not in verse_baselines:
                 _left, verse_top, _right, _bottom = font_registry().ink_bounds(
-                    block.text, font_size
+                    block.text, font_size, 500
                 )
                 lyric_gap = (
                     style.text_lyric_clearance
@@ -4659,9 +4659,13 @@ def _draw_measure_text(
         measure, x, width, y, style, event_spans=event_spans
     ):
         ink_left, ink_top, _right, _bottom = font_registry().ink_bounds(
-            layout.text, layout.font_size
+            layout.text,
+            layout.font_size,
+            500 if layout.role == "lyric" else 400,
         )
-        advance = font_registry().measure(layout.text, layout.font_size)
+        advance = font_registry().measure(
+            layout.text, layout.font_size, 500 if layout.role == "lyric" else 400
+        )
         if layout.role == "lyric":
             # 左对齐：歌词从音符位置向右延伸，anchor="start" 起始于
             # bbox.x - ink_left（= center_x）。
@@ -4898,8 +4902,11 @@ def _text(
         "font-size": size,
         "text-anchor": anchor,
     }
-    ink_left, ink_top, ink_right, ink_bottom = font_registry().ink_bounds(value, size)
-    advance = font_registry().measure(value, size)
+    weight = publication_text_weight(cls)
+    ink_left, ink_top, ink_right, ink_bottom = font_registry().ink_bounds(
+        value, size, weight
+    )
+    advance = font_registry().measure(value, size, weight)
     offset = (
         -advance / 2 if anchor == "middle" else -advance if anchor == "end" else 0.0
     )
