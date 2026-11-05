@@ -113,7 +113,9 @@ function diagnosticCopyText(diagnostic: SyntaxDiagnostic): string {
   flex: 0 0 auto;
   min-width: 42px;
   color: var(--danger);
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
+  line-height: 1.7;
   white-space: nowrap;
 }
 
@@ -143,6 +145,13 @@ function diagnosticCopyText(diagnostic: SyntaxDiagnostic): string {
 
 .syntax-diagnostic-message {
   min-width: 0;
+  flex: 1;
+  font-size: 11.5px;
+  line-height: 1.7;
   overflow-wrap: anywhere;
+}
+
+.syntax-diagnostic :deep(.copy-text-button) {
+  margin-top: -2px;
 }
 </style>
