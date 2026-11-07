@@ -124,12 +124,13 @@ test('applied deletions stay clickable in edit mode so they can be restored', ()
 })
 
 test('binarization offers explicit automatic and manual modes', () => {
-  assert.match(toolPathsSource, /v-model:value="binarizationMode"/)
-  assert.match(toolPathsSource, /binarizationAuto/)
-  assert.match(toolPathsSource, /binarizationManual/)
-  assert.match(toolPathsSource, /:disabled="binarizationMode === 'auto'"/)
+  assert.match(toolPathsSource, /t\('settings\.tools\.binarizationMode'\)/)
+  assert.match(toolPathsSource, /v-model:checked="binarizationAuto"/)
+  assert.match(toolPathsSource, /v-model:value="manualBinarizationThreshold"/)
+  assert.match(toolPathsSource, /:disabled="binarizationAuto"/)
   assert.match(toolPathsSource, /:min="1"/)
-  assert.match(toolPathsSource, /mode === 'auto'\s*\?\s*0/)
+  assert.match(toolPathsSource, /automatic\s*\?\s*0/)
+  assert.match(toolPathsSource, /lastManualBinarizationThreshold/)
 })
 
 test('uploader and recognition coordination state is instance scoped', () => {
