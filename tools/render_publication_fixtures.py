@@ -16,7 +16,9 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
-    fixture_root = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "publication"
+    fixture_root = (
+        Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "publication"
+    )
     cases = json.loads((fixture_root / "cases.json").read_text(encoding="utf-8"))
     args.output.mkdir(parents=True, exist_ok=True)
     for case in cases:
@@ -29,7 +31,9 @@ def main() -> None:
         for index, page in enumerate(pages, 1):
             stem = args.output / f"{case['name']}-page-{index:02d}"
             stem.with_suffix(".svg").write_text(page.svg, encoding="utf-8")
-            svg_page_to_image(page.svg.encode("utf-8"), stem.with_suffix(".png"), dpi=300)
+            svg_page_to_image(
+                page.svg.encode("utf-8"), stem.with_suffix(".png"), dpi=300
+            )
         print(f"{case['name']}: {len(pages)} page(s)")
 
 

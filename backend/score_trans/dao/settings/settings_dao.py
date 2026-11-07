@@ -114,7 +114,11 @@ class SettingsDao:
         show = conn.execute(
             f"SELECT value FROM {TABLE_NAME} WHERE key = ?", ("show_measure_numbers",)
         ).fetchone()
-        value = self.defaults.get("measure_number_mode", "row_start") if show is None else "all"
+        value = (
+            self.defaults.get("measure_number_mode", "row_start")
+            if show is None
+            else "all"
+        )
         if show is not None and show["value"].strip().lower() in {
             "0",
             "false",

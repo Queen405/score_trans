@@ -253,13 +253,10 @@ def test_triplet_articulations_have_their_own_source_anchors() -> None:
         )
         for index in range(4)
     ]
-    document = score_to_jianpu_document(
-        JianpuScore(measures=[_make_measure(events)])
-    )
+    document = score_to_jianpu_document(JianpuScore(measures=[_make_measure(events)]))
 
     assert (
-        "$3:2;^>[5+5,+2,+5,,] ^>[5+5,+2,+5,,] ^>[5+5,+2,+5,,]$ "
-        "^> [5+5,+2,+5,,] |"
+        "$3:2;^>[5+5,+2,+5,,] ^>[5+5,+2,+5,,] ^>[5+5,+2,+5,,]$ ^> [5+5,+2,+5,,] |"
     ) in document.text
     accents = [anchor for anchor in document.anchors if anchor.role == "articulation"]
     assert [anchor.source_id for anchor in accents] == [
