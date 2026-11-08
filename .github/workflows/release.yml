@@ -41,7 +41,7 @@ jobs:
           python-version: '3.13'
       - name: Create release Python environment
         run: uv venv .venv --python 3.13
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - name: Validate recovery source
