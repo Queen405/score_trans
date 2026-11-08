@@ -272,6 +272,89 @@ def download_snapshot(info: dict, directory: Path, tag: str, sha: str) -> dict:
     return verify_snapshot(directory, tag, sha)
 
 
+GROUP_TITLES = {
+    "feat": "新功能",
+    "fix": "修复",
+    "perf": "性能优化",
+    "refactor": "重构",
+    "docs": "文档",
+    "test": "测试",
+    "chore": "其他",
+}
+
+GROUP_ORDER = ["feat", "fix", "perf", "refactor", "docs", "test", "chore", "other"]
+
+
+def previous_release_tag(tag: str) -> str | None:
+    """Find the newest version tag older than the one being published."""
+    try:
+        pages = json.loads(
+            gh(
+                "api",
+                f"repos/{REPOSITORY}/tags?per_page=100",
+                "--paginate",
+                "--slurp",
+            ).stdout
+        )
+    except subprocess.CalledProcessError:
+        return None
+    names = [
+        item.get("name", "")
+        for page in pages
+        for item in page
+        if isinstance(item, dict)
+    ]
+    versions = [name for name in names if re.fullmatch(r"v\d+\.\d+\.\d+", name)]
+    current = version_tuple(tag[1:])
+    older = [name for name in versions if version_tuple(name[1:]) < current]
+    if not older:
+        return None
+    return max(older, key=lambda name: version_tuple(name[1:]))
+
+
+def generated_release_body(tag: str, summary: str) -> str:
+    """Group commits since the previous release into a What's Changed body."""
+    previous = previous_release_tag(tag)
+    if previous is None:
+        return summary
+    try:
+        comparison = gh_json(f"repos/{REPOSITORY}/compare/{previous}...{tag}") or {}
+    except subprocess.CalledProcessError:
+        return summary
+    groups: dict[str, list[str]] = {}
+    for item in comparison.get("commits") or []:
+        message = (item.get("commit", {}).get("message") or "").splitlines()
+        subject = message[0].strip() if message else ""
+        if not subject:
+            continue
+        match = re.match(r"^([A-Za-z]+)(?:\([^)]*\))?!?:\s*(.+)$", subject)
+        if match:
+            kind, text = match.group(1).lower(), match.group(2)
+        else:
+            kind, text = "other", subject
+        entry = f"- {text} ({(item.get('sha') or '')[:7]})"
+        author = (item.get("author") or {}).get("login")
+        if author:
+            entry += f" by @{author}"
+        groups.setdefault(kind, []).append(entry)
+    if not groups:
+        return summary
+    lines: list[str] = []
+    if summary:
+        lines.extend([summary, ""])
+    lines.append("### What's Changed")
+    for kind in GROUP_ORDER:
+        entries = groups.get(kind)
+        if not entries:
+            continue
+        lines.extend(["", f"#### {GROUP_TITLES.get(kind, '其他')}"])
+        lines.extend(entries)
+    html_url = comparison.get("html_url", "")
+    if html_url:
+        lines.extend(["", f"**Full Changelog**: {html_url}"])
+    return "\n".join(lines)
+
+
 def stage(
     directory: Path, manifest: dict, tag: str, sha: str, info: dict | None
 ) -> None:
@@ -283,6 +366,7 @@ def stage(
         if not set(snapshot_asset_names(info, tag).values()) <= expected:
             raise ValueError("Unexpected assets in incomplete draft")
     else:
+        body = generated_release_body(tag, manifest.get("notes", ""))
         gh(
             "release",
             "create",
@@ -294,7 +378,7 @@ def stage(
             "--title",
             tag,
             "--notes",
-            manifest.get("notes", ""),
+            body,
         )
     # The checksums file is the completion marker and is uploaded separately LAST.
     gh(

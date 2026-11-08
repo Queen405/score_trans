@@ -3,7 +3,10 @@
 ## Normal release
 
 1. Set desktop/package.json and desktop/latest.json to the same x.y.z version
-   and prepare the manifest's release notes.
+   and prepare the manifest's release notes. The GitHub release body is generated
+   by tools/release.py from the commits between the previous version tag and the
+   new tag (grouped What's Changed); the manifest notes are used as the lead
+   paragraph. Repositories without pull requests still get a full commit list.
 2. Push or merge to the default branch (main). Package and release runs quality
    checks, Windows x64 and macOS arm64 packaging, and installed-app smoke tests.
 3. After all three jobs pass, the serialized delivery job validates both installers
