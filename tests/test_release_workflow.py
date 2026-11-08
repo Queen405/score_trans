@@ -592,6 +592,8 @@ def test_publish_reads_real_draft_lookup_without_creating_another_release(
             data = remote.info
         elif endpoint.endswith("/releases/latest"):
             raise subprocess.CalledProcessError(1, args, stderr="gh: HTTP 404")
+        elif endpoint.endswith("/tags?per_page=100"):
+            data = []
         else:
             pytest.fail(f"Unexpected API call: {endpoint}")
         return subprocess.CompletedProcess(args, 0, json.dumps(data))

@@ -288,22 +288,10 @@ GROUP_ORDER = ["feat", "fix", "perf", "refactor", "docs", "test", "chore", "othe
 def previous_release_tag(tag: str) -> str | None:
     """Find the newest version tag older than the one being published."""
     try:
-        pages = json.loads(
-            gh(
-                "api",
-                f"repos/{REPOSITORY}/tags?per_page=100",
-                "--paginate",
-                "--slurp",
-            ).stdout
-        )
+        tags = gh_json(f"repos/{REPOSITORY}/tags?per_page=100") or []
     except subprocess.CalledProcessError:
         return None
-    names = [
-        item.get("name", "")
-        for page in pages
-        for item in page
-        if isinstance(item, dict)
-    ]
+    names = [item.get("name", "") for item in tags if isinstance(item, dict)]
     versions = [name for name in names if re.fullmatch(r"v\d+\.\d+\.\d+", name)]
     current = version_tuple(tag[1:])
     older = [name for name in versions if version_tuple(name[1:]) < current]
