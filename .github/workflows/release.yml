@@ -49,12 +49,12 @@ jobs:
         run: |
           test "$GITHUB_REF" = "refs/heads/$DEFAULT_BRANCH"
           test -n "$RELEASE_TAG"
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         if: inputs.mode == 'publish' || inputs.mode == 'auto-publish'
         with:
           name: score-trans-windows-x64
           path: release-assets
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         if: inputs.mode == 'publish' || inputs.mode == 'auto-publish'
         with:
           name: score-trans-mac-arm64
