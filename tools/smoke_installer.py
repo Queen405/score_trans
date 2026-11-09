@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -19,7 +18,6 @@ RUNNER_ENVIRONMENT = os.environ.get("RUNNER_ENVIRONMENT", "")
 RUNNER_TEMP = os.environ.get("RUNNER_TEMP", "")
 _INSTALL_TIMEOUT = 600
 _UNINSTALL_TIMEOUT = 300
-_ACCESS_VIOLATION = 0xC0000005
 _REPORTS = ROOT / "desktop/smoke-reports"
 _SAMPLE_INTERVAL = 30
 _DIAGNOSTIC_TIMEOUT = 10
@@ -198,28 +196,8 @@ def run_bounded(
 
 
 def _run_installer(command: str, install: Path, phase: str = "install") -> None:
-    # The custom NSIS UI skin can crash in System.dll on headless runners before
-    # any file is extracted. Retry on a clean directory; if the executable is
-    # already present, the crash happened during post-install cleanup instead.
-    for attempt in range(3):
-        try:
-            run_bounded(command, _INSTALL_TIMEOUT, install=install, phase=phase)
-            break
-        except subprocess.CalledProcessError as exc:
-            if (install / "Score Trans.exe").is_file():
-                _record(
-                    phase,
-                    "recovered",
-                    returncode=exc.returncode,
-                    note="installer crashed after files were installed",
-                )
-                break
-            if exc.returncode != _ACCESS_VIOLATION or attempt == 2:
-                raise
-            _record(phase, "retry", returncode=exc.returncode, attempt=attempt + 1)
-            shutil.rmtree(install, ignore_errors=True)
-            time.sleep(2)
     # Existing files prove nothing about this invocation, particularly on reinstall.
+    run_bounded(command, _INSTALL_TIMEOUT, install=install, phase=phase)
     if not (install / "Score Trans.exe").is_file():
         raise RuntimeError("Installer did not create the application executable")
 
