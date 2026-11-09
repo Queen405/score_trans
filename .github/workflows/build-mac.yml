@@ -51,14 +51,14 @@ jobs:
           uv run python tools/smoke_mac.py 2>&1 | tee desktop/smoke-reports/installer.log
       - name: Preserve diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: package-diagnostics-mac
           path: desktop/smoke-reports/
           if-no-files-found: ignore
           retention-days: 3
       - name: Upload installers
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: score-trans-mac-arm64
           path: |
