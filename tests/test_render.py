@@ -374,6 +374,56 @@ def test_rhythm_pitch_and_chord_features_are_visible() -> None:
     assert 'class="extension-line"' in svg
 
 
+def test_chord_lowest_tone_aligns_with_single_note_baseline() -> None:
+    chord = Event(
+        kind="note",
+        duration=Fraction(1),
+        pitches=[
+            JianpuPitch(5, accidental_text="###"),
+            JianpuPitch(3),
+            JianpuPitch(1),
+        ],
+    )
+    rows = pitch_layouts(chord, PublicationStyle())
+    assert [row.pitch.degree for row in rows] == [5, 3, 1]
+    assert [row.y for row in rows] == sorted(row.y for row in rows)
+    assert rows[-1].y == pytest.approx(0)
+
+    score = JianpuScore(
+        measures=[
+            Measure(
+                "1",
+                duration=Fraction(2),
+                events=[
+                    chord,
+                    Event(
+                        kind="note",
+                        duration=Fraction(1),
+                        pitches=[JianpuPitch(1)],
+                    ),
+                ],
+            )
+        ]
+    )
+    root = _root(render_score_svg(score))
+    chord_group = next(
+        node for node in root.iter() if node.attrib.get("data-note-token") == "[5+3+1]"
+    )
+    single_group = next(
+        node for node in root.iter() if node.attrib.get("data-note-token") == "1"
+    )
+
+    def lowest_pitch_baseline(group: ET.Element) -> float:
+        lowest = next(
+            node for node in group.iter() if node.attrib.get("aria-label") == "1"
+        )
+        return _translate(lowest)[1]
+
+    assert lowest_pitch_baseline(chord_group) == pytest.approx(
+        lowest_pitch_baseline(single_group)
+    )
+
+
 def test_dotted_quarter_note_renders_dot_without_extension_line() -> None:
     # 附点四分音符（1.5 拍）的小数部分由附点表达，不应再画延长横线。
     root = _root(render_score_svg(long_duration_score()))

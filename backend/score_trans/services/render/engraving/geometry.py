@@ -135,9 +135,11 @@ def pitch_layouts(event: Event, style: PublicationStyle) -> tuple[PitchLayout, .
     if not pitches:
         return ()
 
+    # Align the lowest chord tone with the event baseline; stack higher tones
+    # above it. Centering the whole chord moved its bottom tone below other
+    # notes at the same rhythmic position.
     offsets = [
-        -(len(pitches) - 1) * style.chord_gap / 2 + index * style.chord_gap
-        for index in range(len(pitches))
+        -(len(pitches) - index - 1) * style.chord_gap for index in range(len(pitches))
     ]
 
     def build(row_offsets: list[float]) -> list[PitchLayout]:
@@ -238,11 +240,9 @@ def pitch_layouts(event: Event, style: PublicationStyle) -> tuple[PitchLayout, .
             current_top = min(current_top, box.top)
         required = previous_bottom + style.event_clearance - current_top
         if required > 0:
-            for shift_index in range(index, len(offsets)):
-                offsets[shift_index] += required
+            for shift_index in range(index):
+                offsets[shift_index] -= required
 
-    center = (offsets[0] + offsets[-1]) / 2
-    offsets = [offset - center for offset in offsets]
     layouts = list(build(offsets))
     if not _rhythm_line_count(event):
         for index in range(1, len(layouts)):
@@ -260,19 +260,19 @@ def pitch_layouts(event: Event, style: PublicationStyle) -> tuple[PitchLayout, .
             required = previous_bottom + style.event_clearance - current_top
             if required <= 0:
                 continue
-            for shift_index in range(index, len(layouts)):
+            for shift_index in range(index):
                 shifted = layouts[shift_index]
                 layouts[shift_index] = PitchLayout(
                     shifted.pitch,
-                    shifted.y + required,
-                    _translated(shifted.note_box, 0.0, required),
+                    shifted.y - required,
+                    _translated(shifted.note_box, 0.0, -required),
                     (
-                        _translated(shifted.accidental_box, 0.0, required)
+                        _translated(shifted.accidental_box, 0.0, -required)
                         if shifted.accidental_box is not None
                         else None
                     ),
                     tuple(
-                        _translated(box, 0.0, required) for box in shifted.octave_boxes
+                        _translated(box, 0.0, -required) for box in shifted.octave_boxes
                     ),
                 )
     return tuple(layouts)
