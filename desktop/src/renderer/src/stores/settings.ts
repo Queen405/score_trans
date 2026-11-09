@@ -148,7 +148,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const jianpuSystemGapPercent = ref(40)
   const jianpuShortNoteGapPercent = ref(20)
   const jianpuBeatGapPercent = ref(100)
-  const jianpuBreakBeamsAtBeat = ref(false)
+  const jianpuBreakBeamsAtBeat = ref(true)
   const jianpuMeasuresPerSystem = ref<MeasuresPerSystem>(0)
   const jianpuMarginTopMm = ref(8)
   const jianpuMarginBottomMm = ref(5)
@@ -223,7 +223,7 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuSystemGapPercent: 40,
     jianpuShortNoteGapPercent: 20,
     jianpuBeatGapPercent: 100,
-    jianpuBreakBeamsAtBeat: false,
+    jianpuBreakBeamsAtBeat: true,
     jianpuMeasuresPerSystem: 0 as MeasuresPerSystem,
     jianpuMarginTopMm: 8,
     jianpuMarginBottomMm: 5,
@@ -621,7 +621,7 @@ export const useSettingsStore = defineStore('settings', () => {
     jianpuSystemGapPercent.value = data.jianpu_system_gap_percent ?? 40
     jianpuShortNoteGapPercent.value = data.jianpu_short_note_gap_percent ?? 20
     jianpuBeatGapPercent.value = data.jianpu_beat_gap_percent ?? 100
-    jianpuBreakBeamsAtBeat.value = data.jianpu_break_beams_at_beat ?? false
+    jianpuBreakBeamsAtBeat.value = data.jianpu_break_beams_at_beat ?? true
     jianpuMeasuresPerSystem.value = data.jianpu_measures_per_system ?? 0
     jianpuMarginTopMm.value = data.jianpu_margin_top_mm ?? 8
     jianpuMarginBottomMm.value = data.jianpu_margin_bottom_mm ?? 5

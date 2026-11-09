@@ -371,7 +371,7 @@ def mark_layouts(event: Event, style: PublicationStyle) -> tuple[MarkLayout, ...
     if event.dotted:
         horizontal_right = max(
             horizontal_right,
-            17.0 * rhythm_scale
+            style.duration_mark_offset * rhythm_scale
             + (event.dotted - 1) * style.rhythm_dot_step * rhythm_scale
             + style.rhythm_dot_radius * rhythm_scale,
         )
@@ -382,7 +382,11 @@ def mark_layouts(event: Event, style: PublicationStyle) -> tuple[MarkLayout, ...
             horizontal_right = max(
                 horizontal_right,
                 extension_start
-                + ((extensions - 1) * style.extension_line_step + 11.0) * rhythm_scale,
+                + (
+                    (extensions - 1) * style.extension_line_step
+                    + style.extension_line_length
+                )
+                * rhythm_scale,
             )
 
     mark_ids = list(
@@ -487,11 +491,11 @@ def _rhythm_bottom_from_note_bottom(
         return note_bottom
     return (
         note_bottom
-        + 12.5 * _chord_rhythm_scale(event, style)
+        + style.rhythm_line_gap * _chord_rhythm_scale(event, style)
         + (rhythm_lines - 1)
         * style.rhythm_line_level_step
         * _chord_rhythm_scale(event, style)
-        + style.stroke_width * _chord_rhythm_scale(event, style)
+        + style.rhythm_line_stroke_width / 2 * _chord_rhythm_scale(event, style)
     )
 
 
@@ -518,12 +522,42 @@ def _low_octave_first_center(
 def _duration_extension_start(event: Event, style: PublicationStyle) -> float:
     scale = style.chord_rhythm_scale if _chorded(event) else 1.0
     if not event.dotted:
-        return 17.0 * scale
+        return style.duration_mark_offset * scale
     return (
-        17.0 * scale
+        style.duration_mark_offset * scale
         + max(0, event.dotted - 1) * style.rhythm_dot_step * scale
         + style.rhythm_dot_radius * scale
         + style.duration_dot_clearance * scale
+    )
+
+
+def duration_extension_y(event: Event, style: PublicationStyle) -> float:
+    """Shared chord dashes sit at the stack centre, independently of its anchor."""
+    rows = pitch_layouts(event, style)
+    if len(rows) > 1:
+        return (
+            min(row.note_box.top for row in rows)
+            + max(row.note_box.bottom for row in rows)
+        ) / 2
+    return -style.note_size * 0.2
+
+
+def duration_dot_boxes(event: Event, style: PublicationStyle) -> tuple[InkBox, ...]:
+    scale = _chord_rhythm_scale(event, style)
+    radius = style.rhythm_dot_radius * scale
+    rows = pitch_layouts(event, style)
+    centres = (
+        [(row.note_box.top + row.note_box.bottom) / 2 for row in rows]
+        if len(rows) > 1
+        else [-style.note_size * (7 / 30)]
+    )
+    return tuple(
+        InkBox(cx - radius, cy - radius, cx + radius, cy + radius)
+        for cy in centres
+        for index in range(event.dotted)
+        for cx in [
+            style.duration_mark_offset * scale + index * style.rhythm_dot_step * scale
+        ]
     )
 
 
@@ -582,7 +616,10 @@ def measure_event_layout(
 
     if event.kind == "extension":
         scale = style.chord_rhythm_scale if event.chorded_extension else 1.0
-        box = InkBox(-5.5 * scale, -7.0 * scale, 5.5 * scale, -5.0 * scale)
+        cy = duration_extension_y(event, style)
+        half_width = style.extension_line_length * scale / 2
+        half_height = style.stroke_width * scale / 2
+        box = InkBox(-half_width, cy - half_height, half_width, cy + half_height)
         return EventLayout(box, (VisualPart("extension-line", box),))
 
     parts: list[VisualPart] = []
@@ -605,39 +642,32 @@ def measure_event_layout(
             parts.append(VisualPart("octave-dot", dot_box))
             box = box.union(dot_box)
 
+    if len(pitch_rows) > 1 and (event.tie_start or event.tie_stop):
+        # Independent short arcs above each chord tone; reserve their outer
+        # top envelope without treating the whole span as one wide event.
+        top = min(row.note_box.top for row in pitch_rows)
+        box = box.union(InkBox(0, top - 5.0, 0, top))
+
     if event.duration > 1:
         extensions = max(0, math.ceil(float(event.duration)) - 1)
         if extensions:
             left = _duration_extension_start(event, style)
             scale = _chord_rhythm_scale(event, style)
-            right = left + ((extensions - 1) * style.extension_line_step + 11) * scale
-            dash = InkBox(left, -7 * scale, right, -5 * scale)
+            right = (
+                left
+                + (
+                    (extensions - 1) * style.extension_line_step
+                    + style.extension_line_length
+                )
+                * scale
+            )
+            cy = duration_extension_y(event, style)
+            dash = InkBox(left, cy - scale, right, cy + scale)
             box = box.union(dash)
             parts.append(VisualPart("extension-line", dash))
-    if event.dotted:
-        scale = _chord_rhythm_scale(event, style)
-        radius = style.rhythm_dot_radius * scale
-        step = style.rhythm_dot_step * scale
-        right = 17 * scale + (event.dotted - 1) * step + radius
-        box = box.union(
-            InkBox(
-                17 * scale - radius,
-                -7 * scale - radius,
-                right,
-                -7 * scale + radius,
-            )
-        )
-        parts.append(
-            VisualPart(
-                "rhythm-dot",
-                InkBox(
-                    17 * scale - radius,
-                    -7 * scale - radius,
-                    right,
-                    -7 * scale + radius,
-                ),
-            )
-        )
+    for dot_box in duration_dot_boxes(event, style):
+        box = box.union(dot_box)
+        parts.append(VisualPart("rhythm-dot", dot_box))
 
     chord_bottom = max((row.note_box.bottom for row in pitch_rows), default=0.0)
     attachment_bottom = chord_bottom

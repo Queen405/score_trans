@@ -1989,7 +1989,6 @@ async function renderFinalBatch(): Promise<string[]> {
     accidental_mode: settings.accidentalMode,
     measure_number_mode: settings.measureNumberMode,
     initial_measure_number: Math.max(1, Math.trunc(initialMeasureNumber.value || 1)),
-    title: t('convert.exportTitle'),
     ...settings.jianpuLayoutRequest,
   }))
   const ids = renderResponsePageIds(result.pages, result.svg_file_id)
@@ -2045,14 +2044,14 @@ async function loadRenderSourcePageLookup(pages: RenderedSvgPage[]): Promise<voi
 function buildBatchRenderPages() {
   return buildBatchRenderRequests(batchRenderSourcePages(), {
     jianpuText: operationalJianpuText.value,
-    title: t('convert.exportTitle'),
+    fallbackTitle: t('convert.exportTitle'),
   })
 }
 
 function buildBatchRenderSourcePages() {
   return buildBatchRenderRequests(batchRenderSourcePages(), {
     jianpuText: operationalJianpuText.value,
-    title: t('convert.exportTitle'),
+    fallbackTitle: t('convert.exportTitle'),
   })
 }
 

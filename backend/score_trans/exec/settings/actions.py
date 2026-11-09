@@ -369,7 +369,7 @@ class SettingsActions:
                 "jianpu_beat_gap_percent", 100
             ),
             jianpu_break_beams_at_beat=self.service.get_bool(
-                "jianpu_break_beams_at_beat", False
+                "jianpu_break_beams_at_beat", True
             ),
             jianpu_measures_per_system=self.service.get_int(
                 "jianpu_measures_per_system", 0

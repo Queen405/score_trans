@@ -30,7 +30,7 @@ def check_scene_geometry(
     issues: list[GeometryIssue] = []
     virtual_width = scene.width / scene.coordinate_scale
     virtual_height = scene.height / scene.coordinate_scale
-    anchors: list[tuple[tuple[str, ...], BBox]] = []
+    anchors: list[tuple[tuple[str, ...], BBox, tuple[BBox, ...]]] = []
     records: list[GeometryRecord] = []
     for node, _parent_classes, parent_owner in _walk_nodes(scene.nodes):
         classes = tuple(node.attrs.get("class", "").split())
@@ -86,11 +86,13 @@ def check_scene_geometry(
                     }
                 )
         if "source-anchor" in classes:
-            anchors.append((classes, bbox))
+            anchors.append((classes, bbox, node.ink_boxes or (bbox,)))
 
-    for index, (left_classes, left_box) in enumerate(anchors):
-        for right_classes, right_box in anchors[index + 1 :]:
-            if _overlaps(left_box, right_box):
+    for index, (left_classes, left_box, left_parts) in enumerate(anchors):
+        for right_classes, right_box, right_parts in anchors[index + 1 :]:
+            if _overlaps(left_box, right_box) and any(
+                _overlaps(a, b) for a in left_parts for b in right_parts
+            ):
                 issues.append(
                     {
                         "kind": "event-overlap",
@@ -101,10 +103,13 @@ def check_scene_geometry(
                 )
     for index, left_record in enumerate(records):
         for right_record in records[index + 1 :]:
-            if left_record.kind in {"source-anchor", "g"} and right_record.kind in {
-                "source-anchor",
-                "g",
-            }:
+            # Event containers include blank space between digit/mark/lyric
+            # bands. Their actual parts are checked above; compare primitives
+            # here so a shared rhythm line cannot collide with that blank box.
+            if (
+                "source-anchor" in left_record.classes
+                or "source-anchor" in right_record.classes
+            ):
                 continue
             if (
                 left_record.kind in _SPANNER_KINDS

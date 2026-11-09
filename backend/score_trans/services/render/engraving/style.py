@@ -36,22 +36,13 @@ class PublicationStyle:
     system_gap: float = 12.0
     title_block_height: float = 96.0
     minimum_measure_width: float = 150.0
-    ideal_event_gap: float = 42.0
     minimum_event_gap: float = 28.0
     short_note_gap_scale: float = 1.0
     spacing_increment: float = 8.0
     tuplet_boundary_gap: float = 2.0
-    # Beat boundaries out of a subdivided beat (e.g. 4 sixteenths per beat) are
-    # widened so beats stay visually distinguishable. Beats holding a single
-    # event (4 quarters, 6/8 with 6 eighths) are unaffected.
-    #
-    # Absolute floor for a boundary gap, in minimum-gap space. It enters the
-    # width reservation and the justification base, so a dense measure keeps a
-    # visible beat division even when the ratio below has no room left.
+    # Optical beat separation is elastic; regular subdivisions stay uniform
+    # and communicate grouping through rhythm-line breaks.
     beat_boundary_gap: float = 13.0
-    # Beat-boundary gap = neighbouring within-beat gap x (1 + ratio). Applied
-    # after justification, so it is immune to the stretch factor that the line
-    # density imposes. Combines with the absolute floor above by max().
     beat_boundary_ratio: float = 0.28
     barline_gutter: float = 20.0
     event_clearance: float = 6.0
@@ -79,11 +70,13 @@ class PublicationStyle:
     text_lane_gap: float = 8.0
     text_lyric_clearance: float = 8.0
     continuation_header_height: float = 18.0
-    measure_side_padding: float = 42.0
     system_top_reserve: float = 24.0
     header_system_gap: float = 36.0
     system_bottom_reserve: float = 18.0
     rhythm_line_side_extent: float = 12.0
+    rhythm_line_gap: float = 12.5
+    rhythm_line_stroke_width: float = 1.8
+    duration_mark_offset: float = 17.0
     # Smaller overhang for per-beat segments when beams break at beat
     # boundaries, so adjacent beat groups keep a clearly visible gap.
     rhythm_line_break_segment_extent: float = 6.0
@@ -91,8 +84,8 @@ class PublicationStyle:
     beam_hook_length: float = 18.0
     # When true, rhythm/beam lines break at beat boundaries so each beat keeps
     # its own continuous segment with a gap between beats (one line per beat).
-    break_beams_at_beat: bool = False
-    # 0 keeps the width-optimized automatic layout; 3/4/5 use an aligned grid.
+    break_beams_at_beat: bool = True
+    # 0 selects automatic breaking; 3/4/5 share aligned document columns.
     measures_per_system: int = 0
     spanner_endpoint_offset: float = 10.0
     slide_endpoint_offset: float = 13.0
@@ -106,6 +99,7 @@ class PublicationStyle:
     tuplet_number_gap: float = 4.0
     tuplet_stack_gap: float = 16.0
     extension_line_step: float = 18.0
+    extension_line_length: float = 11.0
     last_line_fill_threshold: float = 0.72
     max_system_overflow_ratio: float = 1.08
     slur_break_penalty: float = 120.0

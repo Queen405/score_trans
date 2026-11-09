@@ -4,7 +4,7 @@
     "path": "melody.jianpu",
     "measures_per_system": 4,
     "sha256": [
-      "62534eb186621dc3477a5eac3c169ddf1f092116d512e15ce4787dad3831a32f"
+      "350c37512f1f29f435c30813ffdf4ab22c50ed957c843a080671a6f974a5f806"
     ]
   },
   {
@@ -12,7 +12,7 @@
     "path": "lyrics-zh.jianpu",
     "measures_per_system": 4,
     "sha256": [
-      "d187eed296775a02e9aee817cde36ffccb7a6f07f7894edc90e87385584f04a2"
+      "b5dcb3b0004106a072a5eacdf80906308156c3dbb38c43041cc44367ea6f6173"
     ]
   },
   {
@@ -20,7 +20,7 @@
     "path": "lyrics-mixed.jianpu",
     "measures_per_system": 4,
     "sha256": [
-      "834334e7bb111d0f0c39d48715a54018316fdb8795580caf57b33b0c78dffe93"
+      "b531a2bdd073450b9a31a9c66041ddc2fb9fbdd4116f769de4875313e94ce24d"
     ]
   },
   {
@@ -28,7 +28,7 @@
     "path": "dense-rhythm.jianpu",
     "measures_per_system": 4,
     "sha256": [
-      "b8397667ed42e150fef227fa347236c76ff988a216c59b84e8288cb1be7a9062"
+      "8a5e466a4e06af1239635b70f665c95191163c3c7d0ed3d372bbbccdf763595a"
     ]
   },
   {
@@ -36,7 +36,7 @@
     "path": "multi-part.jianpu",
     "measures_per_system": 4,
     "sha256": [
-      "3f20d5e213b9f9944a498875d679b4b456fdd82eb785f19ae8f21b66d022d60a"
+      "d50785c8cd4a631971adc69cc20747a103b4438bdcf0f6c19144e5194bdaee1b"
     ]
   },
   {
@@ -45,10 +45,8 @@
     "measures_per_system": 4,
     "min_pages": 2,
     "sha256": [
-      "f076f369949610fa64f7e5e266732f6dcd432585192b314984ce2b8be68b7df3",
-      "d8b049d0912127593a19a719c1d8953e358b557985afee4af3ad1e2e463d1aec",
-      "4856a16292ff0cd886d66af04d5de6db327d2d45233160c39446bf81b2abe600",
-      "8567c9cf5b4c64b80ee5a9823493ebb62790d847725b3d29ce0bf7eba53f5665"
+      "9161c3c4deed088ef31955322d9672d5b2415af44905d757095cd2a7454c512e",
+      "945aebb133b6b880eab2c43683dd727e37d0ac55fccf1e35d31e9c6e6c26989d"
     ]
   },
   {
@@ -58,16 +56,15 @@
     "min_pages": 2,
     "max_pages": 11,
     "sha256": [
-      "26739529410e0cd1ec923c1f6ac3f7f5eb43d4a00900b49d1b8e039cd9057b08",
-      "15584c10b2acb0c6b75afe07fa35cee75085128f546e542eed8d79e5c23c02fe",
-      "111e0726a6d7cc72aeb1f582c0dca6b88dad78ad3dca057656315d0af36c7506",
-      "fff17d72739cdaa9e8d60ea2b94e2554d8a3c114ce791e41e457676c057020b8",
-      "f86cce2e8b474a54a713038d19e045abf02676e74fcc6b8113ec64667fbc23f6",
-      "fff0cb5dbbc998ca5baf380f420aabb6bb4fef4aea36a2386d12b1475191a857",
-      "b2e49a40021e8eb8a638453a591292805a190cd831b00c495bdc2840bf66c46f",
-      "1e047d958f6a707a6fbf2f0d6a568259a4bf477dbfc945231a330f0dd36acdec",
-      "4111eb0a0cce084afca543984e1e71c9e94f23cbbafd24e1d6c4833d5366bcc1",
-      "c1056cb65d4eb67f853221f804c059bc30392b6cad6846d27dddf7bf55c5ceca"
+      "36d5dc57a0392f48d259452ad685ebd2544b39ff4657c69510f619e7b12db99c",
+      "92608638f80cfafc8046116d5e0f80736c3de2d0e4cb59af6243296c960aacbf",
+      "ceca6220bca0149c4c87ffe1dd69fb8e5c18061917975e1cb17d2b7150ec3090",
+      "4ee5b007a1c11a606165577dd7091a8189ef8d4eb08372bf4965b9f7e24cf234",
+      "85f1b7551d984b1caac45758b34564d62ab4535f4e4fe8fdd086e925155e86dd",
+      "236bb5678aafd801b73d25b970be4fc8047506a6d9e847a97c9a85c663ac6439",
+      "fc901d75e67d1635b9b2b5b42615d4b4f5d94ec9aae3ee50d912a2f31e8e999e",
+      "55f25bc25aa864ede601a25ece040c6bb9662bd74dd3da24febd9737664c3dc0",
+      "ae2b9158b5dec0335255dc18330930799d064e10641ea2480a45272083f3b88d"
     ]
   }
 ]

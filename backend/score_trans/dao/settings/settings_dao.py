@@ -91,6 +91,7 @@ class SettingsDao:
                 )
             self._migrate_audiveris_pixel_budget(conn)
             self._migrate_compact_jianpu_layout(conn)
+            self._migrate_publication_beat_groups(conn)
             self._remove_obsolete_settings(conn)
             conn.commit()
 
@@ -140,6 +141,15 @@ class SettingsDao:
                 (row["key"], row["value"]),
             )
         conn.execute("DROP TABLE IF EXISTS ocr_settings")
+
+    def _migrate_publication_beat_groups(self, conn: sqlite3.Connection) -> None:
+        if int(conn.execute("PRAGMA user_version").fetchone()[0]) >= 3:
+            return
+        conn.execute(
+            f"UPDATE {TABLE_NAME} SET value = '1' WHERE key = ?",
+            ("jianpu_break_beams_at_beat",),
+        )
+        conn.execute("PRAGMA user_version = 3")
 
     def _migrate_measure_number_mode(self, conn: sqlite3.Connection) -> None:
         mode = conn.execute(

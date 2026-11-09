@@ -118,7 +118,7 @@ async def run_pipeline(
         ge=MIN_BEAT_GAP_PERCENT,
         le=MAX_BEAT_GAP_PERCENT,
     ),
-    jianpu_break_beams_at_beat: bool = Form(False),
+    jianpu_break_beams_at_beat: bool = Form(True),
     jianpu_measures_per_system: MeasuresPerSystem = Form(0),
     jianpu_margin_top_mm: float = Form(DEFAULT_MARGIN_TOP_MM, ge=0, le=50),
     jianpu_margin_bottom_mm: float = Form(DEFAULT_MARGIN_BOTTOM_MM, ge=0, le=50),

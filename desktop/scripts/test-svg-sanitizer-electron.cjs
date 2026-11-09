@@ -1,10 +1,14 @@
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
+const os = require('node:os')
 const ts = require('typescript')
 const { app, BrowserWindow } = require('electron')
 
 app.disableHardwareAcceleration()
+const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'score-trans-svg-test-'))
+app.setPath('userData', profile)
+app.setPath('sessionData', profile)
 
 async function main() {
   const sourcePath = path.resolve(
@@ -69,6 +73,36 @@ async function main() {
   assert.match(result.css, /\.note\{font-size:24px\}/)
   assert.equal(result.sourceIds, 's1:i1')
   assert.equal(result.path, 'M 0 0 L 10 10')
+
+  const publication = fs.readFileSync(
+    path.join(__dirname, 'fixtures/publication-chinese-title.svg'), 'utf8',
+  )
+  const title = await window.webContents.executeJavaScript(`
+    (() => {
+      ${compiled}
+      const source = new DOMParser().parseFromString(${JSON.stringify(publication)}, 'image/svg+xml').documentElement
+      const cleaned = sanitizeSvg(${JSON.stringify(publication)})
+      document.body.replaceChildren(source, cleaned)
+      const original = source.querySelector('.score-title')
+      const sanitized = cleaned.querySelector('.score-title')
+      const inkBoxes = node => [...node.querySelectorAll('path')].map(path => {
+        const box = path.getBBox()
+        return [box.x, box.y, box.width, box.height]
+      })
+      return {
+        title: sanitized.getAttribute('aria-label'),
+        originalPaths: [...original.querySelectorAll('path')].map(path => path.getAttribute('d')),
+        sanitizedPaths: [...sanitized.querySelectorAll('path')].map(path => path.getAttribute('d')),
+        originalBoxes: inkBoxes(original),
+        sanitizedBoxes: inkBoxes(sanitized),
+      }
+    })()
+  `)
+  assert.equal(title.title, '海阔天空')
+  assert.ok(title.originalPaths.some(data => data.length > 4096))
+  assert.deepEqual(title.sanitizedPaths, title.originalPaths)
+  assert.deepEqual(title.sanitizedBoxes, title.originalBoxes)
+  assert.ok(title.sanitizedBoxes.every(box => box[2] > 0 && box[3] > 0))
   window.destroy()
 }
 

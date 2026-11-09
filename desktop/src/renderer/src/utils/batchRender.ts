@@ -22,6 +22,8 @@ export interface BatchRenderSourcePage {
 export interface BatchRenderBuildOptions {
   jianpuText?: string
   title?: string
+  // Passed to text parsing only; never override the document with this label.
+  fallbackTitle?: string
   combineJianpuText?: boolean
 }
 
@@ -30,14 +32,14 @@ export function buildBatchRenderRequests(
   options: BatchRenderBuildOptions = {},
 ): BatchRenderPageRequest[] {
   const text = options.jianpuText?.trim() ? options.jianpuText : ''
-  if (!text) return buildSourcePageRenderRequests(pages, options.title)
+  if (!text) return buildSourcePageRenderRequests(pages, options.title, options.fallbackTitle)
 
   if (options.combineJianpuText) {
     return [
       compactRequest({
         jianpu_text: text,
         include_ocr_text: false,
-        title: options.title,
+        title: options.title || pages.map((page) => sourceTitle(page)).find(Boolean) || options.fallbackTitle,
       }),
     ]
   }
@@ -58,7 +60,7 @@ export function buildBatchRenderRequests(
           text_attachments: page?.textAttachments ?? [],
           text_anchors: page?.textAnchors ?? [],
           include_ocr_text: false,
-          title: options.title,
+          title: options.title || sourceTitle(page) || options.fallbackTitle,
         })
       }
       if (page?.musicxmlFileId) {
@@ -72,7 +74,7 @@ export function buildBatchRenderRequests(
           text_attachments: page.textAttachments,
           text_anchors: page.textAnchors ?? [],
           include_ocr_text: false,
-          title: options.title,
+          title: options.title || sourceTitle(page),
         })
       }
       return null
@@ -83,6 +85,7 @@ export function buildBatchRenderRequests(
 export function buildSourcePageRenderRequests(
   pages: BatchRenderSourcePage[],
   title?: string,
+  fallbackTitle?: string,
 ): BatchRenderPageRequest[] {
   return pages
     .map((page, sourcePageIndex) => {
@@ -96,10 +99,14 @@ export function buildSourcePageRenderRequests(
         text_attachments: page.textAttachments,
         text_anchors: page.textAnchors ?? [],
         include_ocr_text: false,
-        title,
+        title: title || sourceTitle(page),
       }
       if (page.jianpuText.trim()) {
-        return compactRequest({ ...common, jianpu_text: page.jianpuText })
+        return compactRequest({
+          ...common,
+          title: common.title || fallbackTitle,
+          jianpu_text: page.jianpuText,
+        })
       }
       if (page.musicxmlFileId) {
         return compactRequest({ ...common, musicxml_file_id: page.musicxmlFileId })
@@ -107,6 +114,10 @@ export function buildSourcePageRenderRequests(
       return null
     })
     .filter((page): page is BatchRenderPageRequest => page !== null)
+}
+
+function sourceTitle(page: BatchRenderSourcePage | undefined): string | undefined {
+  return page?.textAttachments?.find((item) => item.role === 'title' && item.text.trim())?.text.trim()
 }
 
 export function renderResponsePageIds(

@@ -82,7 +82,7 @@ class LiveJianpuSvgRequest(BaseModel):
     show_title: bool = False
     measure_number_mode: MeasureNumberMode = "all"
     initial_measure_number: int = Field(default=1, ge=1)
-    jianpu_break_beams_at_beat: bool = False
+    jianpu_break_beams_at_beat: bool = True
 
 
 class LiveJianpuSvgResponse(BaseModel):

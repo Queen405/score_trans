@@ -524,7 +524,9 @@ class RenderActions:
             measure_ranges_by_page,
         )
         placement = place_source_text_attachments(
-            _aligned_source_attachments(req.source_pages or req.pages),
+            _aligned_source_attachments(
+                req.source_pages or req.pages, native_title=effective_title
+            ),
             [page.svg for page in layout_pages],
             measure_ranges_by_page,
         )
@@ -942,6 +944,7 @@ def _aligned_source_attachments(
     pages: list[BatchRenderPageRequest],
     *,
     only_source_page_index: int | None = None,
+    native_title: str | None = None,
 ) -> list[list[SourceTextAttachment]]:
     indexed_pages = [
         (_request_source_page_index(page, index), page)
@@ -956,7 +959,15 @@ def _aligned_source_attachments(
     max_index = max((source_index for source_index, _ in indexed_pages), default=-1)
     aligned: list[list[SourceTextAttachment]] = [[] for _ in range(max_index + 1)]
     for source_index, page in indexed_pages:
-        aligned[source_index].extend(page.text_attachments)
+        aligned[source_index].extend(
+            item
+            for item in page.text_attachments
+            if not (
+                native_title
+                and item.role == "title"
+                and item.text.strip() == native_title.strip()
+            )
+        )
     return aligned
 
 

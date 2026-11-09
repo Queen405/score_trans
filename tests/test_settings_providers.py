@@ -493,6 +493,29 @@ def test_settings_defaults_seeds_empty_api_keys() -> None:
     assert defaults["assistant_api_key"] == ""
 
 
+def test_beat_group_default_migrates_once_without_resetting_other_layout_values(
+    tmp_path,
+) -> None:
+    path = tmp_path / "settings.db"
+    old = SettingsDao(path, defaults=settings_defaults())
+    old.set("jianpu_break_beams_at_beat", "0")
+    old.set("jianpu_part_gap_percent", "120")
+    old.set("jianpu_measures_per_system", "5")
+    with sqlite3.connect(path) as conn:
+        conn.execute("PRAGMA user_version = 2")
+    migrated = SettingsDao(path, defaults=settings_defaults())
+    assert migrated.get("jianpu_break_beams_at_beat") == "1"
+    assert migrated.get("jianpu_part_gap_percent") == "120"
+    assert migrated.get("jianpu_measures_per_system") == "5"
+    migrated.set("jianpu_break_beams_at_beat", "0")
+    assert (
+        SettingsDao(path, defaults=settings_defaults()).get(
+            "jianpu_break_beams_at_beat"
+        )
+        == "0"
+    )
+
+
 def test_settings_defaults_seeds_empty_paths() -> None:
     defaults = settings_defaults()
     assert defaults["audiveris_path"] == ""

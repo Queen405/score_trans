@@ -50,10 +50,11 @@ def test_real_score_fixed_pagination_packs_visible_ink_and_respects_footer(
     assert all(len(system.cells) <= count for system in systems)
     assert len(pages[-1]) >= 2
     if count == 5:
-        # Four complete systems per page are the publication target; the last
-        # page may retain natural bottom whitespace after balancing.
-        assert len(pages) <= 11
-        assert all(3 <= len(page) <= 4 for page in pages)
+        assert len(pages) <= 9
+        assert any(len(page) >= 5 for page in pages)
+        template = systems[0].widths
+        for system in systems:
+            assert system.widths == pytest.approx(template[: len(system.cells)])
     for page_index, page in enumerate(pages):
         header = (
             style.first_system_header_height
@@ -76,6 +77,9 @@ def test_real_score_fixed_pagination_packs_visible_ink_and_respects_footer(
         first, last = page[0].vertical, page[-1].vertical
         used = style.margin_top + header + first.above + sum(pitches) + last.below
         assert used <= _pagination_bottom(style) + 1e-6
+        if count == 5:
+            # Populated pages use the available height, including the last page.
+            assert _pagination_bottom(style) - used < 1e-4
         for system in page:
             bounds = [
                 _part_vertical_envelope(system, i, style, show_measure_numbers=True)
@@ -122,9 +126,16 @@ def test_real_score_output_keeps_shared_onsets_and_has_no_staff_collisions() -> 
     )
     pages = renderer.render_scores(scores, title="结婚记", initial_measure_number=1)
     numbers = []
+    barline_columns = set()
     for page in pages:
         assert not any(
-            issue["kind"] in {"page-overflow", "measure-overflow", "event-overlap"}
+            issue["kind"]
+            in {
+                "page-overflow",
+                "measure-overflow",
+                "event-overlap",
+                "geometry-overlap",
+            }
             for issue in page.scene.geometry_issues
         )
         notes = [
@@ -162,4 +173,7 @@ def test_real_score_output_keeps_shared_onsets_and_has_no_staff_collisions() -> 
         for node in page.scene.nodes:
             if node.attrs.get("class") == "measure-no":
                 numbers.append(int(node.text))
+            if node.attrs.get("class") == "measure":
+                barline_columns.add(round(float(node.attrs["x1"]), 6))
     assert numbers == list(range(1, 188))
+    assert len(barline_columns) == 5

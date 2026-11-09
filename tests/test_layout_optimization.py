@@ -134,7 +134,9 @@ def test_oversized_system_fails_instead_of_overflowing_footer() -> None:
 
 
 @pytest.mark.parametrize("count", [3, 4, 5])
-def test_fixed_system_uses_aligned_columns_for_full_and_short_rows(count: int) -> None:
+def test_fixed_system_shares_columns_with_short_rows(
+    count: int,
+) -> None:
     style = PublicationStyle(page_width=664, measures_per_system=count)
     cells = _cells([100] * (count + 2))
 
@@ -142,8 +144,8 @@ def test_fixed_system_uses_aligned_columns_for_full_and_short_rows(count: int) -
 
     assert [len(system.cells) for system in systems] == [count, 2]
     column_width = style.content_width / count
-    for system in systems:
-        assert system.widths == pytest.approx([column_width] * len(system.cells))
+    assert systems[0].widths == pytest.approx([column_width] * count)
+    assert systems[1].widths == pytest.approx([column_width] * 2)
 
 
 def test_fixed_system_honors_forced_breaks_without_rejustifying_short_row() -> None:
@@ -156,36 +158,38 @@ def test_fixed_system_honors_forced_breaks_without_rejustifying_short_row() -> N
 
     assert [len(system.cells) for system in systems] == [2, 4, 3]
     assert systems[2].force_page_before is True
-    assert all(width == 125 for system in systems for width in system.widths)
+    assert systems[0].widths == pytest.approx([125, 125])
+    assert systems[1].widths == pytest.approx([125] * 4)
+    assert systems[2].widths == pytest.approx([125] * 3)
 
 
-def test_fixed_system_width_protection_keeps_original_grid() -> None:
+def test_fixed_system_reduces_count_to_preserve_hard_width() -> None:
     style = PublicationStyle(page_width=664, measures_per_system=4)
     cells = _cells([130] * 8)
 
     systems = _break_systems(cells, style, 1)
 
     assert [len(system.cells) for system in systems] == [3, 3, 2]
-    assert all(width == 125 for system in systems for width in system.widths)
+    assert all(width >= 130 for system in systems for width in system.widths)
+    assert all(sum(system.widths) <= style.content_width + 1e-6 for system in systems)
 
 
-def test_fixed_system_expands_dense_measure_across_aligned_columns() -> None:
+def test_fixed_system_gives_dense_measure_more_elastic_space() -> None:
     style = PublicationStyle(page_width=664, measures_per_system=4)
 
     systems = _break_systems(_cells([100, 200, 100]), style, 1)
 
     assert len(systems) == 1
-    assert systems[0].widths == pytest.approx([125, 250, 125])
+    left, dense, right = systems[0].widths
+    assert left == pytest.approx(right)
+    assert dense >= 2 * left
+    assert left + dense + right <= style.content_width
 
 
-def test_fixed_system_gives_extreme_measure_a_full_row_instead_of_failing() -> None:
+def test_single_measure_wider_than_page_reports_infeasible_layout() -> None:
     style = PublicationStyle(page_width=664, measures_per_system=4)
-
-    systems = _break_systems(_cells([1000, 100]), style, 1)
-
-    assert [len(system.cells) for system in systems] == [1, 1]
-    assert systems[0].widths == pytest.approx([500])
-    assert systems[1].widths == pytest.approx([125])
+    with pytest.raises(RenderError, match="第 1 小节.*超出页面"):
+        _break_systems(_cells([1000, 100]), style, 1)
 
 
 def test_nonlast_page_distributes_slack_evenly_between_systems() -> None:
@@ -211,7 +215,7 @@ def test_nonlast_page_distributes_slack_evenly_between_systems() -> None:
     assert gap > style.system_gap
 
 
-def test_page_gap_has_stretch_limit() -> None:
+def test_sparse_page_does_not_expand_two_systems_across_the_entire_page() -> None:
     style = PublicationStyle(page_height=2000)
     systems = [_System([], [], 100) for _ in range(2)]
 
@@ -224,7 +228,7 @@ def test_page_gap_has_stretch_limit() -> None:
         fit_content_height=False,
     )
 
-    assert gap == pytest.approx(3 * style.system_gap)
+    assert gap == pytest.approx(style.system_gap)
 
 
 def test_last_single_and_content_fit_pages_keep_natural_gap() -> None:
@@ -263,9 +267,15 @@ def test_page_gap_uses_continuation_header_without_title() -> None:
 
     used = style.margin_top + style.continuation_system_header_height + 200
     used += style.system_gap
-    expected = style.system_gap + min(
-        max(0.0, _pagination_bottom(style) - used),
-        2 * style.system_gap,
+    available = (
+        _pagination_bottom(style)
+        - style.margin_top
+        - style.continuation_system_header_height
+    )
+    expected = style.system_gap + (
+        max(0.0, _pagination_bottom(style) - used)
+        if 200 + style.system_gap >= 0.6 * available
+        else 0
     )
     assert gap == pytest.approx(expected)
 
@@ -320,7 +330,7 @@ def test_fixed_sparse_page_stretch_is_bounded_and_last_page_is_natural() -> None
         page_count=2,
         show_title=True,
     )
-    assert stretched == pytest.approx([102 + 2 * style.system_gap])
+    assert stretched == pytest.approx([102])
     assert natural == [102]
     assert (
         _fixed_page_pitches(
@@ -353,8 +363,8 @@ def test_fixed_page_pitches_use_pairwise_envelopes() -> None:
     )
 
     assert len(pitches) == 2
-    assert pitches[0] == pytest.approx(186.0)
-    assert pitches[1] == pytest.approx(256.0)
+    assert pitches[0] == pytest.approx(162.0)
+    assert pitches[1] == pytest.approx(232.0)
 
 
 def test_fixed_pagination_honors_forced_page_before() -> None:

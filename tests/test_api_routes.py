@@ -591,7 +591,7 @@ def test_settings_persists_a4_layout_percentages(tmp_path: Path) -> None:
     assert initial.json()["jianpu_system_gap_percent"] == 40
     assert initial.json()["jianpu_short_note_gap_percent"] == 20
     assert initial.json()["jianpu_beat_gap_percent"] == 100
-    assert initial.json()["jianpu_break_beams_at_beat"] is False
+    assert initial.json()["jianpu_break_beams_at_beat"] is True
     assert initial.json()["jianpu_measures_per_system"] == 0
     assert initial.json()["jianpu_margin_top_mm"] == 8
     assert initial.json()["jianpu_margin_bottom_mm"] == 5
@@ -712,7 +712,7 @@ def test_all_a4_request_contracts_expose_layout_controls() -> None:
         assert properties["jianpu_system_gap_percent"]["default"] == 40
         assert properties["jianpu_short_note_gap_percent"]["default"] == 20
         assert properties["jianpu_beat_gap_percent"]["default"] == 100
-        assert properties["jianpu_break_beams_at_beat"]["default"] is False
+        assert properties["jianpu_break_beams_at_beat"]["default"] is True
         assert properties["jianpu_measures_per_system"]["default"] == 0
         assert properties["jianpu_measures_per_system"]["enum"] == [0, 3, 4, 5]
         assert properties["jianpu_margin_top_mm"]["default"] == 8
@@ -751,7 +751,7 @@ def test_all_a4_request_contracts_expose_layout_controls() -> None:
     assert settings_beat_gap["maximum"] == 200
 
     live_properties = schemas["LiveJianpuSvgRequest"]["properties"]
-    assert live_properties["jianpu_break_beams_at_beat"]["default"] is False
+    assert live_properties["jianpu_break_beams_at_beat"]["default"] is True
 
     multipart_properties = schemas["Body_run_pipeline_pipeline_post"]["properties"]
     assert multipart_properties["jianpu_system_gap_percent"]["minimum"] == 20

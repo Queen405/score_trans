@@ -48,6 +48,7 @@ class SceneNode:
     attrs: dict[str, str | float | int] = field(default_factory=dict)
     text: str | None = None
     children: list["SceneNode"] = field(default_factory=list)
+    ink_boxes: tuple[BBox, ...] = ()
 
     def to_svg(self, indent: int = 0) -> str:
         pad = "  " * indent

@@ -90,6 +90,9 @@ const SAFE_PATH = /^[MmZzLlHhVvCcSsQqTtAa0-9eE+.,\s-]+$/
 const SAFE_TRANSFORM = /^(?:(?:rotate|translate|scale|matrix)\([-+0-9.eE,\s]+\)\s*)+$/
 const SAFE_SELECTOR = /^(?:text|\.[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)(?:\s+\.[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)*$/
 const SAFE_FONT_FAMILY = /^[\p{L}\p{N}\s,'"_-]+$/u
+// Outlined Chinese glyphs from the publication font exceed 4 KiB per character.
+// Keep the larger allowance specific to path data; its command allowlist still applies.
+const MAX_PATH_DATA_LENGTH = 256 * 1024
 
 export function sanitizeSvg(text: string): SVGSVGElement {
   const doc = new DOMParser().parseFromString(text, 'image/svg+xml')
@@ -210,6 +213,9 @@ export function isSafeSvgAttributeValue(
   attributeName: string,
   value: string,
 ): boolean {
+  if (elementName === 'path' && attributeName === 'd') {
+    return value.length <= MAX_PATH_DATA_LENGTH && SAFE_PATH.test(value)
+  }
   if (value.length > 4096) return false
   if (attributeName === 'xmlns') return value === SVG_NAMESPACE
   if (attributeName === 'class') return SAFE_CLASS.test(value)
@@ -226,7 +232,6 @@ export function isSafeSvgAttributeValue(
       return code > 0x1f && code !== 0x7f
     })
   }
-  if (attributeName === 'd') return SAFE_PATH.test(value)
   if (attributeName === 'points' || attributeName === 'viewbox') {
     return SAFE_NUMBER_LIST.test(value)
   }

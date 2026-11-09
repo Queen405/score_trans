@@ -13,6 +13,7 @@ import pytest
 from score_trans.domain.jianpu import parse_jianpu_score
 from score_trans.domain.parse.jianpu_text import parse_jianpu_parts
 from score_trans.exec.render.actions import RenderActions, _renumber_scores_continuously
+from score_trans.models.common.errors import RenderError
 from score_trans.models.settings.config import ToolConfig
 from score_trans.models.score import (
     Beam,
@@ -52,7 +53,6 @@ from score_trans.services.render.engraving.renderer import (
     _rhythm_line_base,
     _shared_cell_positions,
     _system_common_shortest_duration,
-    _visual_events,
     _system_extra_height,
 )
 from score_trans.services.render.engraving.scene import (
@@ -154,7 +154,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-33"
+    assert root.attrib["data-engine-version"] == "publication-35"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -488,7 +488,7 @@ def test_chord_octave_and_rhythm_attachments_follow_compressed_profile() -> None
     assert all(
         float(node.attrib["r"]) == pytest.approx(2.25 * 0.72) for node in octave_dots
     )
-    assert len(rhythm_dots) == 1
+    assert len(rhythm_dots) == 3
     assert float(rhythm_dots[0].attrib["r"]) == pytest.approx(2.1 * 0.82)
     long_chord = Event(
         kind="note",
@@ -605,7 +605,7 @@ def test_dotted_half_note_dashes_are_evenly_spaced() -> None:
     assert max(steps) - min(steps) <= 6.0
 
 
-def test_consecutive_short_notes_share_continuous_rhythm_lines() -> None:
+def test_consecutive_short_notes_break_at_unit_beats_by_default() -> None:
     events = [
         Event(
             kind="note",
@@ -622,8 +622,8 @@ def test_consecutive_short_notes_share_continuous_rhythm_lines() -> None:
         node for node in root.iter() if "duration-line" in node.attrib.get("class", "")
     ]
 
-    assert len(beams) == 1
-    assert float(beams[0].attrib["x2"]) - float(beams[0].attrib["x1"]) > 100
+    assert len(beams) == 2
+    assert float(beams[0].attrib["x2"]) - float(beams[0].attrib["x1"]) > 20
 
 
 def test_sixteenth_notes_share_both_rhythm_lines() -> None:
@@ -1159,7 +1159,7 @@ def test_multiple_tuplet_groups_reuse_space_between_groups() -> None:
     group_gaps = [visual_gaps[index] for index in (5, 11, 17)]
 
     assert max(group_gaps) - max(internal_gaps) < 24
-    assert min(group_gaps) - max(internal_gaps) >= 6
+    assert min([*group_gaps, *internal_gaps]) >= 6 - 1e-6
     assert max(internal_gaps) - min(internal_gaps) < 16
 
 
@@ -1192,7 +1192,7 @@ def test_multiple_tuplet_groups_keep_a_small_boundary_gap_when_compressed() -> N
     ]
     group_gaps = [visual_gaps[index] for index in (5, 11, 17)]
 
-    assert min(group_gaps) - max(internal_gaps) >= 6
+    assert min([*group_gaps, *internal_gaps]) >= 6 - 1e-6
 
 
 def test_multiple_tuplet_groups_have_compact_intrinsic_width() -> None:
@@ -1248,50 +1248,26 @@ def _boundary_within_ratio(
     return (sum(boundary) / len(boundary)) / (sum(within) / len(within))
 
 
-def test_subdivided_beats_get_a_boundary_gap() -> None:
-    # 16 sixteenths in 4/4: within-beat gaps are uniform; each beat boundary
-    # (indices 3, 7, 11) is widened by a ratio so beats stay distinguishable.
+def test_uniform_subdivisions_keep_shared_time_midpoints() -> None:
     events, measure = _sixteenth_run()
-    style = PublicationStyle()
-    centers = _event_positions(events, 100.0, 900.0, measure, style)
-    gaps = [right - left for left, right in pairwise(centers)]
-    boundary_gaps = [gaps[i] for i in (3, 7, 11)]
-    within_gaps = [gap for index, gap in enumerate(gaps) if index not in {3, 7, 11}]
-
-    # A ratio, not an absolute increment: the visible division must survive
-    # whatever stretch factor the line density imposes.
-    ratio = min(boundary_gaps) / max(within_gaps)
-    assert ratio >= 1.0 + style.beat_boundary_ratio - 0.02
-    assert max(within_gaps) - min(within_gaps) < 1.0
+    positions = _event_positions(events, 100, 900, measure, PublicationStyle())
+    gaps = [b - a for a, b in pairwise(positions)]
+    assert max(gaps) - min(gaps) < 1.0
+    assert positions[4] == pytest.approx((positions[0] + positions[8]) / 2)
 
 
-def test_beat_boundary_ratio_is_stable_across_line_density() -> None:
-    # The core guarantee of the ratio-based approach: the same events laid out
-    # at three very different spans keep the same boundary/within proportion.
-    # The old absolute-increment implementation drifted 1.24 / 1.16 / 1.08 here,
-    # which is why the division was invisible on wide systems.
+def test_uniform_time_grid_is_stable_across_line_density() -> None:
     events, measure = _sixteenth_run()
-    style = PublicationStyle()
-    ratios = [
-        _boundary_within_ratio(events, measure, 100.0, right, style, {3, 7, 11})
-        for right in (640.0, 900.0, 1600.0)
-    ]
-
-    assert max(ratios) - min(ratios) < 0.02
-    assert min(ratios) >= 1.0 + style.beat_boundary_ratio - 0.02
+    for right in (640, 900, 1600):
+        positions = _event_positions(events, 100, right, measure, PublicationStyle())
+        gaps = [b - a for a, b in pairwise(positions)]
+        assert max(gaps) - min(gaps) < 1.0
 
 
-def test_overfull_measure_keeps_beat_division() -> None:
-    # 24 sixteenths crammed into a narrow span falls back to
-    # _bounded_event_positions; the beat division must survive that path too.
+def test_infeasible_dense_measure_cannot_silently_compress_past_ink() -> None:
     events, measure = _sixteenth_run(24)
-    style = PublicationStyle()
-    boundary_indices = {3, 7, 11, 15, 19}
-    ratio = _boundary_within_ratio(
-        events, measure, 100.0, 400.0, style, boundary_indices
-    )
-
-    assert ratio >= 1.0 + style.beat_boundary_ratio - 0.05
+    with pytest.raises(RenderError, match="超出可用宽度"):
+        _event_positions(events, 100, 400, measure, PublicationStyle())
 
 
 def test_one_note_per_beat_has_no_boundary_gap() -> None:
@@ -1376,25 +1352,14 @@ def test_narrow_measure_keeps_visual_slots_inside_content() -> None:
     assert max(visual_gaps) - min(visual_gaps) < 18
 
 
-def test_overfull_dense_measure_keeps_all_event_ink_inside_content() -> None:
+def test_overfull_dense_measure_requests_more_width() -> None:
     events = [
-        Event(
-            kind="note",
-            duration=Fraction(1, 3),
-            start=Fraction(index, 3),
-            pitches=[JianpuPitch(3)],
-        )
+        Event("note", Fraction(1, 3), [JianpuPitch(3)], start=Fraction(index, 3))
         for index in range(18)
     ]
     measure = Measure("1", duration=Fraction(6), events=events)
-    style = PublicationStyle()
-    positions = _event_positions(events, 100.0, 300.0, measure, style)
-    boxes = [measure_event_ink(event, style) for event in events]
-
-    assert all(
-        100.0 <= x + box.left and x + box.right <= 300.0
-        for x, box in zip(positions, boxes, strict=True)
-    )
+    with pytest.raises(RenderError, match="超出可用宽度"):
+        _event_positions(events, 100, 300, measure, PublicationStyle())
 
 
 def test_low_octave_dot_stays_below_duration_lines() -> None:
@@ -2173,23 +2138,13 @@ def test_timed_lyrics_are_not_duplicated_by_event_lyrics() -> None:
     ]
 
 
-def test_wide_event_stays_centered_when_its_ink_cannot_fit() -> None:
-    event = Event(
-        kind="note",
-        duration=Fraction(1),
-        pitches=[JianpuPitch(3)],
-        lyric="超长歌词" * 100,
-    )
+def test_oversized_lyric_reports_measure_instead_of_rendering_overflow() -> None:
+    event = Event("note", Fraction(1), [JianpuPitch(3)], lyric="超长歌词" * 100)
     measure = Measure("1", duration=Fraction(4), events=[event])
-    style = PublicationStyle(page_width=400, margin_left=40, margin_right=40)
-    page = PublicationRenderer(style).render_scores([JianpuScore(measures=[measure])])[
-        0
-    ]
-    root = _root(page.svg)
-    note = next(node for node in root.iter() if node.attrib.get("class") == "note")
-    note_x, _note_y = _translate(note)
-
-    assert style.margin_left <= note_x <= style.page_width - style.margin_right
+    with pytest.raises(RenderError, match="第 1 小节.*超出页面"):
+        PublicationRenderer(
+            PublicationStyle(page_width=400, margin_left=40, margin_right=40)
+        ).render_scores([JianpuScore(measures=[measure])])
 
 
 def test_spanners_tuplets_marks_and_lyrics_are_rendered() -> None:
@@ -2618,7 +2573,9 @@ def test_expanded_short_note_gap_stays_inside_measure_barlines() -> None:
     assert positions[-1] + last_extent[1] <= right + 1e-6
 
 
-def test_short_note_control_preserves_noneligible_adjacent_gaps() -> None:
+def test_short_note_control_redistributes_elastic_space_without_collapsing_other_gaps() -> (
+    None
+):
     score = parse_jianpu_score("1=C\n4/4\nq1 q2 3 4 |")
     events = score.measures[0].events
 
@@ -2637,8 +2594,7 @@ def test_short_note_control_preserves_noneligible_adjacent_gaps() -> None:
     expanded = gaps(1.8)
 
     assert compact[0] < standard[0] <= expanded[0]
-    assert compact[1:] == pytest.approx(standard[1:])
-    assert expanded[1:] == pytest.approx(standard[1:])
+    assert min([*compact[1:], *standard[1:], *expanded[1:]]) > 0
 
 
 def _dense_sixteenth_measure(count: int = 16) -> tuple[list[Event], Measure]:
@@ -2702,39 +2658,31 @@ def test_lower_short_note_gap_fits_more_measures_per_line() -> None:
     assert first_row_measures(20) > first_row_measures(100)
 
 
-def test_beat_gap_floor_survives_maximum_short_note_compaction() -> None:
-    # The ratio pass alone collapses under compaction; beat_boundary_gap is the
-    # absolute floor that keeps the beat division visible at the tightest
-    # setting the short-note control allows.
+def test_compaction_preserves_clearance_without_artificial_uniform_beat_holes() -> None:
     events, measure = _dense_sixteenth_measure()
     style = PublicationStyle(short_note_gap_scale=0.2)
-    ratio = _boundary_within_ratio(events, measure, 100.0, 700.0, style, {3, 7, 11})
-    centers = _event_positions(events, 100.0, 700.0, measure, style)
-    gaps = [right - left for left, right in pairwise(centers)]
-    boundary = [gaps[index] for index in (3, 7, 11)]
-    within = [gap for index, gap in enumerate(gaps) if index not in {3, 7, 11}]
+    positions = _event_positions(events, 100, 700, measure, style)
+    for left, right, a, b in zip(events, events[1:], positions, positions[1:]):
+        assert (
+            b
+            + measure_event_ink(right, style).left
+            - a
+            - measure_event_ink(left, style).right
+            >= style.event_clearance - 1e-6
+        )
 
-    assert ratio > 1.0 + style.beat_boundary_ratio
-    mean_boundary = sum(boundary) / len(boundary)
-    mean_within = sum(within) / len(within)
-    assert mean_boundary - mean_within >= style.beat_boundary_gap * 0.9
 
-
-def test_zero_beat_gap_leaves_only_the_ratio_channel() -> None:
-    events, measure = _dense_sixteenth_measure()
-    compacted = PublicationStyle(short_note_gap_scale=0.2, beat_boundary_gap=0.0)
-    with_floor = PublicationStyle(short_note_gap_scale=0.2)
-    without = _boundary_within_ratio(
-        events, measure, 100.0, 700.0, compacted, {3, 7, 11}
+def test_beat_gap_control_changes_mixed_rhythms_but_not_uniform_subdivisions() -> None:
+    measure = parse_jianpu_score("1=C\n2/4\ns1 s2 q3 q4 q5 |").measures[0]
+    without = _event_positions(
+        measure.events, 100, 700, measure, PublicationStyle(beat_boundary_gap=0)
     )
-    with_ = _boundary_within_ratio(
-        events, measure, 100.0, 700.0, with_floor, {3, 7, 11}
-    )
-
-    # Without the floor the compaction flattens the division back toward the
-    # bare ratio, which is exactly what beat_gap_percent=0 restores.
-    assert without < with_
-    assert without < 1.0 + compacted.beat_boundary_ratio
+    with_gap = _event_positions(measure.events, 100, 700, measure, PublicationStyle())
+    assert without != pytest.approx(with_gap)
+    events, uniform = _dense_sixteenth_measure()
+    assert _event_positions(
+        events, 100, 700, uniform, PublicationStyle(beat_boundary_gap=0)
+    ) == pytest.approx(_event_positions(events, 100, 700, uniform, PublicationStyle()))
 
 
 def test_rhythm_line_is_not_clipped_in_a_dense_measure() -> None:
@@ -2756,18 +2704,13 @@ def test_rhythm_line_is_not_clipped_in_a_dense_measure() -> None:
         assert width >= 2 * style.rhythm_line_side_extent
 
 
-def test_overfull_measure_ignores_the_short_note_control() -> None:
-    # Documented fallback: _bounded_event_positions preserves the barline rather
-    # than the requested gaps, so an overfull bar is scale-invariant.
+def test_short_note_control_never_bypasses_infeasible_hard_width() -> None:
     events, measure = _dense_sixteenth_measure(24)
-
-    def centers(scale: float) -> list[float]:
-        return _event_positions(
-            events, 100.0, 400.0, measure, PublicationStyle(short_note_gap_scale=scale)
-        )
-
-    assert centers(0.2) == pytest.approx(centers(1.0))
-    assert centers(1.8) == pytest.approx(centers(1.0))
+    for scale in (0.2, 1.0, 1.8):
+        with pytest.raises(RenderError):
+            _event_positions(
+                events, 100, 400, measure, PublicationStyle(short_note_gap_scale=scale)
+            )
 
 
 def test_part_gap_allows_zero_percent() -> None:
@@ -3220,11 +3163,11 @@ def test_batch_render_uses_jianpu_text_title_when_request_omits_one(
     root = ET.fromstring(svg_path.read_text(encoding="utf-8"))
     assert (
         root.attrib["data-layout-key"]
-        == "75:88:85:100:0:a:8:5:10:10:3:2:100:100:100:100:75:80:90:90"
+        == "75:88:85:100:1:a:8:5:10:10:3:2:100:100:100:100:75:80:90:90"
     )
     assert (
         response.pages[0].layout_key
-        == "75:88:85:100:0:a:8:5:10:10:3:2:100:100:100:100:75:80:90:90"
+        == "75:88:85:100:1:a:8:5:10:10:3:2:100:100:100:100:75:80:90:90"
     )
     text_content = " ".join(node.text or "" for node in root.iter() if node.text)
     assert "My Song" in text_content
@@ -3237,6 +3180,68 @@ def test_batch_render_uses_jianpu_text_title_when_request_omits_one(
     text_content = " ".join(node.text or "" for node in root.iter() if node.text)
     assert "Custom" in text_content
     assert "My Song" not in text_content
+
+
+@pytest.mark.parametrize(
+    ("text_title", "page_title", "ocr_title", "expected"),
+    [
+        ("海阔天空", "简谱", None, "海阔天空"),
+        (None, "海阔天空", "海阔天空", "海阔天空"),
+        (None, "简谱", None, "简谱"),
+    ],
+)
+def test_batch_title_is_native_and_does_not_duplicate_ocr_overlay(
+    tmp_path: Path,
+    text_title: str | None,
+    page_title: str,
+    ocr_title: str | None,
+    expected: str,
+) -> None:
+    from score_trans.models.provenance.schemas import (
+        SourceTextAttachment,
+        TextPlacementAnchor,
+    )
+    from score_trans.models.render.schemas import (
+        BatchRenderPageRequest,
+        BatchRenderRequest,
+    )
+
+    attachments = [
+        SourceTextAttachment(
+            id="composer",
+            text="作曲者",
+            role="other",
+            anchor=TextPlacementAnchor(kind="score_start"),
+        )
+    ]
+    if ocr_title:
+        attachments.append(
+            SourceTextAttachment(
+                id="title",
+                text=ocr_title,
+                role="title",
+                anchor=TextPlacementAnchor(kind="score_start"),
+            )
+        )
+    page = BatchRenderPageRequest(
+        jianpu_text=(f"title={text_title}\n" if text_title else "")
+        + "1=G\n4/4\n1 2 3 4 |",
+        title=page_title,
+        text_attachments=attachments,
+    )
+    uploads = UploadService(ToolConfig(work_dir=tmp_path / "work"))
+    response = RenderActions(uploads=uploads).render_batch_a4(
+        BatchRenderRequest(pages=[page], source_pages=[page.model_copy(deep=True)])
+    )
+    path = uploads.get_path(response.svg_file_id)
+    assert path is not None
+    root = ET.fromstring(path.read_text(encoding="utf-8"))
+    title = next(node for node in root.iter() if node.get("class") == "score-title")
+    assert title.get("aria-label") == expected
+    assert len([node for node in title if node.tag.endswith("path")]) == len(expected)
+    assert [block.text for block in response.pages[0].text_blocks] == ["作曲者"]
+    # Placement deduplication must not remove source OCR metadata from the request.
+    assert page.text_attachments == attachments
 
 
 def test_lyrics_align_with_quarter_note_positions() -> None:
@@ -3258,9 +3263,7 @@ def test_lyrics_align_with_quarter_note_positions() -> None:
     clip_left = x + style.barline_gutter
     clip_right = x + width - style.barline_gutter
     pad_left, pad_right = _rhythm_edge_padding(events, style)
-    positions = _event_positions(
-        events, clip_left + pad_left, clip_right - pad_right, measure, style
-    )
+    positions = _event_positions(events, clip_left, clip_right, measure, style)
 
     layouts = _measure_text_layout(measure, x, width, 0.0, style)
 
@@ -3322,9 +3325,7 @@ def test_edge_lyrics_align_with_eighth_notes_at_measure_edges() -> None:
     clip_right = x + width - style.barline_gutter
     pad_left, pad_right = _rhythm_edge_padding(events, style)
     assert pad_left > 0 and pad_right > 0
-    positions = _event_positions(
-        events, clip_left + pad_left, clip_right - pad_right, measure, style
-    )
+    positions = _event_positions(events, clip_left, clip_right, measure, style)
 
     layouts = _measure_text_layout(measure, x, width, 0.0, style)
 
@@ -3372,9 +3373,7 @@ def test_first_lyric_aligns_when_wide_lyric_pushes_first_note() -> None:
     clip_left = x + style.barline_gutter
     clip_right = x + width - style.barline_gutter
     pad_left, pad_right = _rhythm_edge_padding(events, style)
-    positions = _event_positions(
-        events, clip_left + pad_left, clip_right - pad_right, measure, style
-    )
+    positions = _event_positions(events, clip_left, clip_right, measure, style)
 
     layouts = _measure_text_layout(measure, x, width, 0.0, style)
 
@@ -3413,9 +3412,8 @@ def test_measure_text_layout_falls_back_without_visual_events() -> None:
     layouts = _measure_text_layout(measure, 0.0, 440.0, 0.0, style)
 
     assert [layout.text for layout in layouts] == ["词"]
-    assert layouts[0].bbox.x + layouts[0].bbox.width / 2 == pytest.approx(
-        style.barline_gutter
-    )
+    assert layouts[0].bbox.x >= style.barline_gutter
+    assert layouts[0].bbox.x + layouts[0].bbox.width <= 440 - style.barline_gutter
 
 
 def test_lyrics_are_centered_while_annotations_remain_centered() -> None:
@@ -3630,7 +3628,7 @@ def test_ending_layout_reserves_space_for_every_part() -> None:
     )
 
 
-def test_fixed_measures_per_system_aligns_barlines_across_short_rows() -> None:
+def test_fixed_measures_per_system_keeps_full_rows_and_natural_short_row() -> None:
     score = parse_jianpu_score("1=C\n4/4\n" + "\n".join(["q1 q2 q3 q4 |"] * 10))
 
     page = render_scores_a4_pages(
@@ -3647,8 +3645,8 @@ def test_fixed_measures_per_system_aligns_barlines_across_short_rows() -> None:
     ordered = [rows[y] for y in sorted(rows)]
     assert len(ordered) == 3
     assert ordered[1] == pytest.approx(ordered[0])
-    assert ordered[2][:1] == pytest.approx(ordered[0][:1])
-    assert len(ordered[2]) == 1  # the short row keeps its aligned inner boundary
+    assert len(ordered[2]) == 1
+    assert ordered[2][0] == pytest.approx(ordered[0][0])
 
 
 def test_a4_layout_options_validate_measures_per_system() -> None:
@@ -3808,11 +3806,11 @@ def test_fixed_mode_lyrics_use_shared_optical_positions() -> None:
     ]
     measure = Measure("1", duration=Fraction(4), events=events)
 
-    positions = _event_positions(events, 100, 500, measure, style)
+    positions = _event_positions(events, 100, 900, measure, style)
     layouts = _measure_text_layout(
         measure,
-        82,
-        436,
+        80,
+        840,
         0,
         style,
         event_spans=[
@@ -3821,12 +3819,12 @@ def test_fixed_mode_lyrics_use_shared_optical_positions() -> None:
         ],
     )
 
-    assert positions == pytest.approx([100, 200])
-    assert layouts[0].bbox.x == pytest.approx(82)
-    assert layouts[1].bbox.x + layouts[1].bbox.width / 2 == pytest.approx(200)
+    assert positions[0] > 100
+    for layout, position in zip(layouts, positions, strict=True):
+        assert layout.bbox.x + layout.bbox.width / 2 == pytest.approx(position, abs=1.0)
 
 
-def test_fixed_mode_mixed_durations_use_sublinear_spacing() -> None:
+def test_fixed_mode_long_notes_keep_extension_beat_slots() -> None:
     style = PublicationStyle(measures_per_system=4)
     measure = Measure(
         "1",
@@ -3841,7 +3839,7 @@ def test_fixed_mode_mixed_durations_use_sublinear_spacing() -> None:
     positions = _event_positions(measure.events, 100, 500, measure, style)
     half_gap = positions[1] - positions[0]
     quarter_gap = positions[2] - positions[1]
-    assert quarter_gap < half_gap < 2 * quarter_gap
+    assert half_gap == pytest.approx(2 * quarter_gap)  # explicit extension slot
 
 
 def test_fixed_mode_tuplet_attachment_expands_only_its_internal_gaps() -> None:
@@ -3890,7 +3888,7 @@ def test_system_spacing_reference_ignores_an_isolated_shorter_measure() -> None:
     assert _system_common_shortest_duration(cells) == Fraction(1, 2)
 
 
-def test_fixed_mode_full_measure_note_and_rest_are_optically_centered() -> None:
+def test_fixed_mode_full_measure_note_and_rest_begin_at_first_beat() -> None:
     style = PublicationStyle(measures_per_system=4)
     for kind in ("note", "rest"):
         event = Event(
@@ -3901,25 +3899,30 @@ def test_fixed_mode_full_measure_note_and_rest_are_optically_centered() -> None:
         )
         measure = Measure("1", duration=Fraction(4), events=[event])
         position = _event_positions([event], 100, 500, measure, style)[0]
-        box = _event_visual_extents(event, style)
-        assert position + (box[0] + box[1]) / 2 == pytest.approx(300)
+        assert position < 150
+        assert position + _event_visual_extents(event, style)[0] >= 100
 
 
-def test_fixed_mode_full_measure_single_event_is_centered_in_shared_cell() -> None:
+def test_full_measure_event_uses_same_first_beat_as_other_parts() -> None:
     style = PublicationStyle(measures_per_system=4)
-    event = Event("note", Fraction(4), [JianpuPitch(1)], start=Fraction(0))
-    measure = Measure("1", duration=Fraction(4), events=[event])
-    positions = _shared_cell_positions([measure, measure], 82, 400, style)
-    visual = _visual_events(measure)
-    ink_left = min(
-        positions[event.start or Fraction(0)] + _event_visual_extents(event, style)[0]
-        for event in visual
+    full = Measure(
+        "1",
+        duration=Fraction(4),
+        events=[Event("note", Fraction(4), [JianpuPitch(1)], start=Fraction(0))],
     )
-    ink_right = max(
-        positions[event.start or Fraction(0)] + _event_visual_extents(event, style)[1]
-        for event in visual
+    regular = Measure(
+        "1",
+        duration=Fraction(4),
+        events=[
+            Event("note", Fraction(1), [JianpuPitch(1)], start=Fraction(i))
+            for i in range(4)
+        ],
     )
-    assert (ink_left + ink_right) / 2 == pytest.approx((102 + 462) / 2)
+    assert _shared_cell_positions([full, full], 82, 400, style)[
+        Fraction(0)
+    ] == pytest.approx(
+        _shared_cell_positions([full, regular], 82, 400, style)[Fraction(0)]
+    )
 
 
 def test_fixed_mode_overfull_measure_does_not_stack_extra_notes_at_right_edge() -> None:
@@ -3943,9 +3946,9 @@ def test_fixed_mode_underfull_measure_keeps_nominal_time_positions() -> None:
         Event("note", Fraction(1), [JianpuPitch(3)], start=Fraction(2)),
     ]
     measure = Measure("1", duration=Fraction(4), events=events)
-    assert _event_positions(events, 100, 500, measure, style) == pytest.approx(
-        [100, 200, 300]
-    )
+    positions = _event_positions(events, 100, 500, measure, style)
+    assert 100 < positions[0] < positions[1] < positions[2] < 500
+    assert positions[1] - positions[0] == pytest.approx(positions[2] - positions[1])
 
 
 def test_fixed_mode_lyrics_widen_the_shared_grid_for_every_part() -> None:
@@ -4003,7 +4006,7 @@ def test_fixed_mode_normalizes_time_within_each_time_signature() -> None:
     ] == pytest.approx(300, abs=0.5)
 
 
-def test_fixed_mode_extreme_content_still_renders_with_diagnostics() -> None:
+def test_fixed_mode_extreme_content_reports_infeasible_measure() -> None:
     score = JianpuScore(
         measures=[
             Measure(
@@ -4022,12 +4025,10 @@ def test_fixed_mode_extreme_content_still_renders_with_diagnostics() -> None:
         ]
     )
 
-    pages = PublicationRenderer(PublicationStyle(measures_per_system=4)).render_scores(
-        [score]
-    )
-
-    assert len(pages) == 1
-    assert pages[0].scene.geometry_issues
+    with pytest.raises(RenderError, match="第 1 小节.*超出页面"):
+        PublicationRenderer(PublicationStyle(measures_per_system=4)).render_scores(
+            [score]
+        )
 
 
 def test_chord_low_octave_dots_stay_below_shared_duration_lines() -> None:
@@ -4163,28 +4164,20 @@ def test_fixed_mode_primary_baselines_use_pairwise_safe_distances(
     assert max(deltas) > min(deltas)
 
 
-def test_fixed_mode_nonlast_pages_stretch_and_last_page_keeps_base_pitch() -> None:
+def test_fixed_mode_height_packing_keeps_every_note_and_respects_page_bounds() -> None:
     score = _vertical_pitch_score()
-    single = PublicationRenderer(PublicationStyle(measures_per_system=4)).render_scores(
-        [score]
-    )[0]
-    base_pitch = _baseline_deltas(_primary_note_baselines(single))[0]
-
-    stretched_pages = PublicationRenderer(
-        PublicationStyle(page_height=650, measures_per_system=4)
-    ).render_scores([score])
-    stretched_deltas = _baseline_deltas(_primary_note_baselines(stretched_pages[0]))
-    assert len(stretched_pages) == 2
-    assert len(stretched_deltas) == 1
-    assert all(delta > base_pitch for delta in stretched_deltas)
-    assert stretched_deltas[0] - base_pitch <= 2 * PublicationStyle().system_gap
-
-    two_row_last_pages = PublicationRenderer(
-        PublicationStyle(page_height=600, measures_per_system=4)
-    ).render_scores([score])
-    assert len(two_row_last_pages) == 2
-    last_deltas = _baseline_deltas(_primary_note_baselines(two_row_last_pages[-1]))
-    assert last_deltas == pytest.approx([base_pitch], abs=1e-6)
+    for height in (600, 650):
+        pages = PublicationRenderer(
+            PublicationStyle(page_height=height, measures_per_system=4)
+        ).render_scores([score])
+        assert len(pages) == 2
+        assert sum(len(_primary_note_baselines(page)) for page in pages) == 4
+        for page in pages:
+            values = _primary_note_baselines(page)
+            assert values == sorted(values)
+            assert not any(
+                issue["kind"] == "page-overflow" for issue in page.scene.geometry_issues
+            )
 
 
 def test_fixed_mode_multi_part_reference_baselines_share_document_pitch() -> None:

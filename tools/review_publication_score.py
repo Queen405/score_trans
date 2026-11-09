@@ -28,7 +28,9 @@ def main() -> None:
     parser.add_argument("--measures-per-system", type=int, choices=(3, 4, 5), default=5)
     parser.add_argument("--part-gap-percent", type=int, default=75)
     parser.add_argument("--system-gap-percent", type=int, default=40)
-    parser.add_argument("--break-beams-at-beat", action="store_true")
+    parser.add_argument(
+        "--break-beams-at-beat", action=argparse.BooleanOptionalAction, default=True
+    )
     parser.add_argument("--dpi", type=int, default=150)
     args = parser.parse_args()
     scores = [
@@ -60,7 +62,36 @@ def main() -> None:
             page.svg.encode("utf-8"), args.output / f"{name}.png", dpi=args.dpi
         )
         counts = dict(Counter(issue["kind"] for issue in page.scene.geometry_issues))
-        page_reports.append({"page": index, "diagnostics": counts})
+        music_bottom = (
+            max(
+                (
+                    record.bbox.y + record.bbox.height
+                    for record in page.scene.geometry_records
+                    if "page-background" not in record.classes
+                    and "page-number" not in record.classes
+                ),
+                default=0.0,
+            )
+            * page.scene.coordinate_scale
+        )
+        barline_columns = sorted(
+            {
+                round(float(node.attrs["x1"]) * page.scene.coordinate_scale, 3)
+                for node in page.scene.nodes
+                if node.attrs.get("class") == "measure"
+            }
+        )
+        page_reports.append(
+            {
+                "page": index,
+                "diagnostics": counts,
+                "barline_columns": barline_columns,
+                "music_bottom": music_bottom,
+                "bottom_blank_mm": (page.scene.height - music_bottom)
+                * 210
+                / page.scene.width,
+            }
+        )
         with Image.open(args.output / f"{name}.png") as raster:
             thumbnail = raster.convert("RGB")
             thumbnail.thumbnail((360, 510))

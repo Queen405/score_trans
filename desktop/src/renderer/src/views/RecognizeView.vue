@@ -1586,7 +1586,8 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
       return
     }
     const batchText = store.batchJianpuTextFor(batchId)
-    const pages = buildBatchRenderRequests(batchPages, { jianpuText: batchText })
+    const renderOptions = { jianpuText: batchText, fallbackTitle: t('recognize.render.jianpuTitle') }
+    const pages = buildBatchRenderRequests(batchPages, renderOptions)
       .map((page, index) => ({
         ...page,
         text_anchors: batchPages[index]?.textAnchors ?? [],
@@ -1599,7 +1600,7 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
     try {
       const result = await requireData(publicationRender.batchA4({
         pages,
-        source_pages: buildBatchRenderRequests(batchPages, { jianpuText: batchText }),
+        source_pages: buildBatchRenderRequests(batchPages, renderOptions),
         render_page_ocr_texts: batchRenderPageOcrTextsForRequest(batchId),
         target_key: settings.targetKey,
         accidental_mode: settings.accidentalMode,
@@ -1609,7 +1610,6 @@ async function maybeRenderCompletedBatchForPage(pageId: string): Promise<void> {
           ?? instrumentProfile.value,
         measure_number_mode: settings.measureNumberMode,
         initial_measure_number: 1,
-        title: t('recognize.render.jianpuTitle'),
         ...settings.jianpuLayoutRequest,
       }))
       const ids = result.pages.map((page) => page.svg_file_id).filter(Boolean)

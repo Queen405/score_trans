@@ -78,7 +78,7 @@ class SettingsResponse(BaseModel):
     jianpu_system_gap_percent: int = DEFAULT_SYSTEM_GAP_PERCENT
     jianpu_short_note_gap_percent: int = DEFAULT_SHORT_NOTE_GAP_PERCENT
     jianpu_beat_gap_percent: int = DEFAULT_BEAT_GAP_PERCENT
-    jianpu_break_beams_at_beat: bool = False
+    jianpu_break_beams_at_beat: bool = True
     jianpu_measures_per_system: MeasuresPerSystem = DEFAULT_MEASURES_PER_SYSTEM
     jianpu_margin_top_mm: float = DEFAULT_MARGIN_TOP_MM
     jianpu_margin_bottom_mm: float = DEFAULT_MARGIN_BOTTOM_MM

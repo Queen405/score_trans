@@ -1200,7 +1200,7 @@ export type components = {
             jianpu_beat_gap_percent?: number;
             /**
              * Jianpu Break Beams At Beat
-             * @default false
+             * @default true
              */
             jianpu_break_beams_at_beat?: boolean;
             /**
@@ -1332,7 +1332,7 @@ export type components = {
         BatchRenderStateResponse: {
             /**
              * Engine Version
-             * @default publication-33
+             * @default publication-35
              */
             engine_version?: string;
             /** Id */
@@ -1374,7 +1374,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-33
+             * @default publication-35
              */
             engine_version?: string;
             /** Id */
@@ -1512,7 +1512,7 @@ export type components = {
             jianpu_beat_gap_percent?: number;
             /**
              * Jianpu Break Beams At Beat
-             * @default false
+             * @default true
              */
             jianpu_break_beams_at_beat?: boolean;
             /**
@@ -1692,7 +1692,7 @@ export type components = {
             jianpu_beat_gap_percent?: number;
             /**
              * Jianpu Break Beams At Beat
-             * @default false
+             * @default true
              */
             jianpu_break_beams_at_beat?: boolean;
             /**
@@ -2027,7 +2027,7 @@ export type components = {
             jianpu_beat_gap_percent?: number;
             /**
              * Jianpu Break Beams At Beat
-             * @default false
+             * @default true
              */
             jianpu_break_beams_at_beat?: boolean;
             /**
@@ -2248,7 +2248,7 @@ export type components = {
             initial_measure_number?: number;
             /**
              * Jianpu Break Beams At Beat
-             * @default false
+             * @default true
              */
             jianpu_break_beams_at_beat?: boolean;
             /** Jianpu Text */
@@ -2369,7 +2369,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-33
+             * @default publication-35
              */
             engine_version?: string;
             /**
@@ -2504,7 +2504,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-33
+             * @default publication-35
              */
             engine_version?: string;
             /** Error Message */
@@ -2702,7 +2702,7 @@ export type components = {
             jianpu_beat_gap_percent?: number;
             /**
              * Jianpu Break Beams At Beat
-             * @default false
+             * @default true
              */
             jianpu_break_beams_at_beat?: boolean;
             /**
@@ -2980,7 +2980,7 @@ export type components = {
             document_revision?: string | null;
             /**
              * Engine Version
-             * @default publication-33
+             * @default publication-35
              */
             engine_version?: string;
             /**
@@ -3097,7 +3097,7 @@ export type components = {
             jianpu_beat_gap_percent?: number;
             /**
              * Jianpu Break Beams At Beat
-             * @default false
+             * @default true
              */
             jianpu_break_beams_at_beat?: boolean;
             /**
@@ -3240,7 +3240,7 @@ export type components = {
             jianpu_beat_gap_percent?: number;
             /**
              * Jianpu Break Beams At Beat
-             * @default false
+             * @default true
              */
             jianpu_break_beams_at_beat?: boolean;
             /**
@@ -3501,7 +3501,7 @@ export type components = {
             jianpu_beat_gap_percent?: number;
             /**
              * Jianpu Break Beams At Beat
-             * @default false
+             * @default true
              */
             jianpu_break_beams_at_beat?: boolean;
             /**

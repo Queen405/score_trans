@@ -117,7 +117,7 @@ const settings = {
     systemGap: '行间距',
     shortNoteGap: '短音符间距',
     beatGap: '分拍间隔',
-    breakBeamsAtBeat: '时值线断开',
+    breakBeamsAtBeat: '按拍组断开减时线',
     measuresPerSystem: '每行小节数',
     measuresAutomatic: '自由排版',
     measuresFixed: '{count} 小节',

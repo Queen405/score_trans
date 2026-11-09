@@ -988,6 +988,24 @@ test('batch render requests preserve page-local source metadata', () => {
   assert.equal(requests[1].jianpu_text, '3 4 |')
 })
 
+test('batch render title fallback preserves OCR titles and native MusicXML metadata', () => {
+  const page = {
+    inputFileName: 'scan.png', inputFileId: 'input', originalFileId: '',
+    musicxmlFileId: 'xml', jianpuText: '1 2 |', ocrText: '',
+    textAttachments: [{ id: 'title', role: 'title', text: ' 海阔天空 ', anchor: { kind: 'score_start' } }],
+  }
+  for (const options of [{}, { jianpuText: '1 2 |' }, { jianpuText: '1 2 |', combineJianpuText: true }]) {
+    const [request] = batchRender.buildBatchRenderRequests([page], { ...options, fallbackTitle: '简谱' })
+    assert.equal(request.title, '海阔天空')
+  }
+  const [explicit] = batchRender.buildBatchRenderRequests([page], { title: '自定曲名', fallbackTitle: '简谱' })
+  assert.equal(explicit.title, '自定曲名')
+  const untitled = { ...page, textAttachments: [] }
+  assert.equal(batchRender.buildBatchRenderRequests([untitled], { fallbackTitle: '简谱' })[0].title, '简谱')
+  const xmlOnly = { ...untitled, jianpuText: '' }
+  assert.equal('title' in batchRender.buildBatchRenderRequests([xmlOnly], { fallbackTitle: '简谱' })[0], false)
+})
+
 test('sparse batch render requests preserve original source page index and anchors', () => {
   const pages = Array.from({ length: 6 }, (_, index) => ({
     inputFileName: `p${index + 1}.png`,

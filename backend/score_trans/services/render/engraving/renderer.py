@@ -53,6 +53,19 @@ from .geometry import (
     measure_event_ink,
     lyric_text_box,
     pitch_layouts,
+    duration_dot_boxes,
+    duration_extension_y,
+    measure_event_layout,
+    VisualPart,
+    InkBox,
+)
+from .rhythm import beat_group_boundaries
+from .spacing import (
+    MeasureSpacing,
+    SpacingItem,
+    SpacingLane,
+    duration_spring,
+    measure_spacing,
 )
 from .mark_graphics import build_mark_graphic
 from .qa import check_scene_geometry
@@ -88,6 +101,8 @@ class _Cell:
     width: float
     forced_system: bool = False
     forced_page: bool = False
+    minimum_width: float = 0.0
+    spacing: MeasureSpacing | None = None
 
 
 @dataclass(slots=True)
@@ -100,6 +115,7 @@ class _PartLayout:
     text_offset: float = 0.0
     top_ink: float = 14.0
     ending_bracket_offset: float = 22.0
+    number_baseline: float = -9.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -523,8 +539,14 @@ class PublicationRenderer:
         for cell_index, (cell, width) in enumerate(
             zip(system.cells, system.widths, strict=True)
         ):
-            shared_positions = _shared_cell_positions(
-                cell.measures, x, width, style, common_shortest=common_shortest
+            shared_positions = (
+                cell.spacing.positions(
+                    x + style.barline_gutter, x + width - style.barline_gutter
+                )
+                if cell.spacing is not None
+                else _shared_cell_positions(
+                    cell.measures, x, width, style, common_shortest=common_shortest
+                )
             )
             cell_groups = playback_groups.get(cell.index) if playback_groups else None
             for part_index in range(part_count):
@@ -780,7 +802,10 @@ class PublicationRenderer:
                 _text(
                     "measure-no",
                     x + 7,
-                    y - 9,
+                    y
+                    + (
+                        part_layout.number_baseline if part_layout is not None else -9.0
+                    ),
                     str(measure.display_number),
                     style.measure_number_size,
                 )
@@ -836,13 +861,8 @@ class PublicationRenderer:
         # 跳房子括号由 _draw_ending_brackets 在系统级统一绘制（跨小节连线、
         # 跨系统续接），这里不再按小节单独画。
         anchors: list[_Anchor] = []
-        # Attributes sit in the upper-left annotation band and must not consume
-        # horizontal event slots; otherwise a key/meter change shifts the bar.
-        #
-        # Clip limits mark how far derived marks (rhythm lines, extension lines)
-        # may reach — into the gutter but never past the barline. Event centres
-        # additionally keep a rhythm-line side extent away from those limits,
-        # because the shared line is no longer part of per-event ink.
+        # The shared profile reserves notation/attachment ink once. Derived
+        # rhythm spans are clipped to these same measure boundaries.
         clip_left = x + style.barline_gutter
         clip_right = x + width - style.barline_gutter
         beat_boundaries = (
@@ -857,14 +877,20 @@ class PublicationRenderer:
                 ),
             )
             ordered_events = [event for _source_index, event in events]
-            pad_left, pad_right = _rhythm_edge_padding(ordered_events, style)
-            event_positions = _event_positions(
-                ordered_events,
-                clip_left if style.measures_per_system else clip_left + pad_left,
-                clip_right if style.measures_per_system else clip_right - pad_right,
-                measure,
-                style,
-                common_shortest=common_shortest,
+            event_positions = (
+                [
+                    shared_positions[event.start or Fraction(0)]
+                    for event in ordered_events
+                ]
+                if shared_positions
+                else _event_positions(
+                    ordered_events,
+                    clip_left,
+                    clip_right,
+                    measure,
+                    style,
+                    common_shortest=common_shortest,
+                )
             )
             if shared_positions:
                 event_positions = [
@@ -923,14 +949,20 @@ class PublicationRenderer:
                     ),
                 )
                 ordered_events = [event for _source_index, event in events]
-                pad_left, pad_right = _rhythm_edge_padding(ordered_events, style)
-                event_positions = _event_positions(
-                    ordered_events,
-                    clip_left if style.measures_per_system else clip_left + pad_left,
-                    clip_right if style.measures_per_system else clip_right - pad_right,
-                    measure,
-                    style,
-                    common_shortest=common_shortest,
+                event_positions = (
+                    [
+                        lane_positions[event.start or Fraction(0)]
+                        for event in ordered_events
+                    ]
+                    if lane_positions
+                    else _event_positions(
+                        ordered_events,
+                        clip_left,
+                        clip_right,
+                        measure,
+                        style,
+                        common_shortest=common_shortest,
+                    )
                 )
                 if lane_positions:
                     event_positions = [
@@ -990,6 +1022,7 @@ class PublicationRenderer:
             width,
             style,
             event_spans=drawn_spans,
+            shared_positions=shared_positions,
         )
         repeat_center = (bar_top + bar_bottom) / 2
         if measure.repeat_start:
@@ -1265,148 +1298,47 @@ def _build_cells(
     parts: list[list[JianpuScore]], style: PublicationStyle
 ) -> list[_Cell]:
     part_measures = [_flatten_measures(part) for part in parts]
-    count = max((len(items) for items in part_measures), default=0)
-    cells: list[_Cell] = []
-    for index in range(count):
+    cells = []
+    for index in range(max((len(items) for items in part_measures), default=0)):
         measures = [
             items[index] if index < len(items) else None for items in part_measures
         ]
         present = [measure for measure in measures if measure is not None]
-        widths = [_intrinsic_measure_width(measure, style) for measure in present]
-        if len(present) > 1:
-            shared_width = _shared_intrinsic_measure_width(present, style)
-            if shared_width is not None:
-                widths.append(shared_width)
-        if (
-            measures
-            and measures[0] is not None
-            and _measure_tempo_changed(parts, 0, index)
-        ):
-            widths[0] = max(widths[0], _tempo_header_min_width(measures[0], style))
-        width = max(widths, default=style.minimum_measure_width)
         cells.append(
             _Cell(
-                index=index,
-                measures=measures,
-                width=width,
+                index,
+                measures,
+                style.minimum_measure_width,
                 forced_system=any(measure.new_system for measure in present),
                 forced_page=any(measure.new_page for measure in present),
             )
         )
+    shortest = _system_common_shortest_duration(cells)
+    for cell in cells:
+        profile = _spacing_profile(cell.measures, style, common_shortest=shortest)
+        cell.spacing = profile
+        cell.minimum_width = profile.minimum_width + 2 * style.barline_gutter
+        cell.width = max(
+            style.minimum_measure_width,
+            cell.minimum_width,
+            profile.natural_width + 2 * style.barline_gutter,
+        )
+        if (
+            cell.measures
+            and cell.measures[0] is not None
+            and _measure_tempo_changed(parts, 0, cell.index)
+        ):
+            cell.width = max(
+                cell.width, _tempo_header_min_width(cell.measures[0], style)
+            )
     return cells
 
 
 def _intrinsic_measure_width(measure: Measure, style: PublicationStyle) -> float:
+    profile = _spacing_profile([measure], style)
     return max(
-        _notation_intrinsic_measure_width(measure, style),
-        _lyric_intrinsic_measure_width(measure, style),
+        style.minimum_measure_width, profile.natural_width + 2 * style.barline_gutter
     )
-
-
-def _lyric_intrinsic_measure_width(measure: Measure, style: PublicationStyle) -> float:
-    """Reserve horizontal room for timed lyrics, including lyrics over rests/gaps."""
-    groups: dict[Fraction, list[TextBlock]] = {}
-    for block in _measure_text_blocks(measure):
-        if block.role == "lyric" and block.start is not None:
-            groups.setdefault(block.start, []).append(block)
-    if not groups:
-        return 0.0
-
-    measured: list[tuple[float, float]] = []
-    for start in sorted(groups):
-        boxes = []
-        for block in groups[start]:
-            font_size = block.font_size or style.lyric_size
-            ink_left, _top, _right, _bottom = font_registry().ink_bounds(
-                block.text, font_size, 500
-            )
-            box = lyric_text_box(block.text, font_size)
-            boxes.append((box.left, box.right))
-        measured.append(
-            (
-                min(left for left, _right in boxes),
-                max(right for _left, right in boxes),
-            )
-        )
-
-    width = style.measure_side_padding - min(0.0, measured[0][0])
-    for index, (left, _right) in enumerate(measured[1:], start=1):
-        width += max(
-            style.minimum_event_gap,
-            measured[index - 1][1] + style.event_clearance - left,
-        )
-    width += max(0.0, measured[-1][1])
-    return max(style.minimum_measure_width, min(style.content_width, width))
-
-
-def _notation_intrinsic_measure_width(
-    measure: Measure, style: PublicationStyle
-) -> float:
-    if not measure.events:
-        return style.minimum_measure_width
-    visual = _visual_events(measure)
-    if not visual:
-        return style.minimum_measure_width
-    # 复调小节按声线分组后，宽度需求是各声线 union onset 的布局需求，
-    # 与多声部共享宽度同一机制（任一单线布局都不够装下并行的两组事件）。
-    lane_groups = _measure_render_lanes(visual)
-    if lane_groups is not None:
-        shared = _shared_intrinsic_measure_width(
-            [_lane_probe(measure, lane_events) for lane_events in lane_groups],
-            style,
-        )
-        if shared is not None:
-            return shared
-    events = sorted(
-        visual,
-        key=lambda event: event.start if event.start is not None else Fraction(0),
-    )
-    extents = _measure_event_visual_extents(events, measure, style)
-    if not extents:
-        return style.minimum_measure_width
-    gaps = _preferred_event_gaps(events, extents, style, _beat_boundaries(measure))
-    pad_left, pad_right = _rhythm_edge_padding(events, style)
-    width = (
-        style.measure_side_padding
-        + (extents[-1][1] + pad_right)
-        - (extents[0][0] - pad_left)
-        + sum(gaps)
-    )
-    return max(style.minimum_measure_width, min(style.content_width, width))
-
-
-def _preferred_event_gaps(
-    events: list[Event],
-    extents: list[tuple[float, float, float, float]],
-    style: PublicationStyle,
-    boundaries: list[Fraction] | None,
-) -> list[float]:
-    """Return the per-gap widths a measure asks for, short-note control applied.
-
-    The scale may compress past the duration spring but not past the ink
-    collision and beat-boundary floors, or the cell would be too narrow to
-    hold its own content.
-    """
-    preferred = _minimum_event_gaps(
-        events,
-        extents,
-        _common_shortest_duration(events),
-        style,
-        boundaries,
-    )
-    scale = style.short_note_gap_scale
-    if scale == 1.0:
-        return list(preferred)
-    # Symmetric on purpose: lowering the control has to narrow the cell so
-    # _break_systems fits more measures per line. Applying it only above 1.0
-    # left the cell unchanged and turned the saved room into dead space at
-    # the bar edges, which is why the control looked inert.
-    gaps = [
-        gap * scale if _is_short_note_pair(events[index], events[index + 1]) else gap
-        for index, gap in enumerate(preferred)
-    ]
-    floors = _hard_event_gaps(events, extents, style, boundaries)
-    return [max(floor, gap) for floor, gap in zip(floors, gaps, strict=True)]
 
 
 def _spacing_lanes(
@@ -1437,52 +1369,54 @@ def _spacing_lanes(
     return result
 
 
-def _shared_intrinsic_measure_width(
-    measures: list[Measure], style: PublicationStyle
-) -> float | None:
-    """Return the cell width the shared multi-part onset layout asks for.
-
-    Laying out the union of all parts' onsets can need more room than any
-    single part (one part dense at the start, another dense at the end), so
-    the cell width must consider the union requirement rather than only the
-    per-part maxima, or the draw-time justification would have to compress
-    below the parts' minimum gaps.
-    """
-    per_part = _spacing_lanes(measures)
-    if len(per_part) < 2:
-        return None
-    union = sorted(
-        {
-            event.start or Fraction(0)
-            for _measure, events in per_part
-            for event in events
-        }
-    )
-    if len(union) < 2:
-        return None
-    rel_maps: list[dict[Fraction, float]] = []
-    left_outer = 0.0
-    right_outer = 0.0
-    for measure, events in per_part:
-        extents = _measure_event_visual_extents(events, measure, style)
-        gaps = _preferred_event_gaps(events, extents, style, _beat_boundaries(measure))
-        relative = [0.0]
-        for gap in gaps:
-            relative.append(relative[-1] + gap)
-        rel_maps.append(
-            {
-                event.start or Fraction(0): offset
-                for event, offset in zip(events, relative, strict=True)
-            }
+def _spacing_profile(
+    measures: list[Measure | None],
+    style: PublicationStyle,
+    *,
+    common_shortest: Fraction | None = None,
+) -> MeasureSpacing:
+    lanes: list[SpacingLane] = []
+    for measure, events in _spacing_lanes(measures):
+        items = []
+        for event in events:
+            layout = measure_event_layout(replace(event, lyric=None, lyrics={}), style)
+            parts = list(layout.parts)
+            if _rhythm_line_count(event):
+                extent = (
+                    style.rhythm_line_break_segment_extent
+                    if style.break_beams_at_beat
+                    else style.rhythm_line_side_extent
+                )
+                scale = style.chord_rhythm_scale if event.is_chord else 1.0
+                parts.append(
+                    VisualPart(
+                        "rhythm-edge", InkBox(-extent * scale, 0, extent * scale, 0)
+                    )
+                )
+            items.append(SpacingItem(event, tuple(parts)))
+        lanes.append(SpacingLane(tuple(items), tuple(_beat_boundaries(measure))))
+    for measure in measures:
+        if measure is None:
+            continue
+        verses: dict[int, list[SpacingItem]] = {}
+        for block in _measure_text_blocks(measure):
+            if block.role != "lyric" or block.start is None:
+                continue
+            box = lyric_text_box(block.text, block.font_size or style.lyric_size)
+            event = Event("rest", Fraction(0), start=block.start)
+            verses.setdefault(block.lyric_verse or 1, []).append(
+                SpacingItem(event, (VisualPart("lyric", box),))
+            )
+        lanes.extend(
+            SpacingLane(tuple(items), rhythmic=False) for items in verses.values()
         )
-        pad_left, pad_right = _rhythm_edge_padding(events, style)
-        left_outer = min(left_outer, extents[0][0] - pad_left)
-        right_outer = max(right_outer, extents[-1][1] + pad_right)
-    total = 0.0
-    for start, end in zip(union, union[1:]):
-        total += _union_interval_shares(rel_maps, start, end)
-    width = style.measure_side_padding + (right_outer - left_outer) + total
-    return max(style.minimum_measure_width, min(style.content_width, width))
+    duration = max(
+        (measure.duration for measure in measures if measure is not None),
+        default=Fraction(1),
+    )
+    return measure_spacing(
+        tuple(lanes), duration, style, common_shortest=common_shortest
+    )
 
 
 def _playback_group_map(cells: list[_Cell]) -> dict[int, dict[Fraction, int]]:
@@ -1513,149 +1447,8 @@ def _shared_cell_positions(
     *,
     common_shortest: Fraction | None = None,
 ) -> dict[Fraction, float]:
-    """Return one x coordinate per onset shared by every part in a cell.
-
-    An empty mapping means "fall back to the per-part layout".  Single-part
-    cells keep the per-part spring layout untouched.  For multi-part cells the
-    union of all onsets is laid out once: each inter-onset gap is the maximum
-    share any part needs across that interval, so every part's minimum spacing
-    is preserved (per-part gaps telescope over the union intervals) while
-    identical onsets share one coordinate across all parts.
-    """
-    per_part = _spacing_lanes(measures)
-    if len(per_part) < 2:
-        return {}
-    union = sorted(
-        {
-            event.start or Fraction(0)
-            for _measure, events in per_part
-            for event in events
-        }
-    )
-    if not union:
-        return {}
-    if style.measures_per_system and all(
-        event.start is not None for _measure, events in per_part for event in events
-    ):
-        duration = max(
-            (
-                max(
-                    measure.duration,
-                    max(
-                        (
-                            start + event.duration
-                            for start, event in event_onsets(measure)
-                        ),
-                        default=Fraction(0),
-                    ),
-                )
-                for measure in measures
-                if measure is not None
-            ),
-            default=Fraction(0),
-        )
-        if duration > 0:
-            clip_left = x + style.barline_gutter
-            clip_right = x + width - style.barline_gutter
-            shared_events = [event for _measure, events in per_part for event in events]
-            shared_measure = Measure(
-                "shared",
-                duration=duration,
-                events=shared_events,
-                text_blocks=[
-                    block
-                    for measure in measures
-                    if measure is not None
-                    for block in measure.text_blocks
-                ],
-            )
-            positions = _fixed_time_positions(
-                shared_events,
-                clip_left,
-                clip_right,
-                shared_measure,
-                style,
-                common_shortest=common_shortest,
-            )
-            if positions is not None:
-                return {
-                    event.start or Fraction(0): position
-                    for event, position in zip(shared_events, positions, strict=True)
-                }
-    clip_left = x + style.barline_gutter
-    clip_right = x + width - style.barline_gutter
-    part_maps: list[dict[Fraction, float]] = []
-    pad_right_max = 0.0
-    for measure, events in per_part:
-        pad_left, pad_right = _rhythm_edge_padding(events, style)
-        pad_right_max = max(pad_right_max, pad_right)
-        positions = _event_positions(
-            events,
-            clip_left if style.measures_per_system else clip_left + pad_left,
-            clip_right if style.measures_per_system else clip_right - pad_right,
-            measure,
-            style,
-        )
-        part_maps.append(
-            {
-                event.start or Fraction(0): position
-                for event, position in zip(events, positions, strict=True)
-            }
-        )
-    start0 = max(
-        (positions[union[0]] for positions in part_maps if union[0] in positions),
-        default=clip_left,
-    )
-    if len(union) == 1:
-        return {union[0]: start0}
-    intervals = list(zip(union, union[1:]))
-    required = [
-        _union_interval_shares(part_maps, start, end) for start, end in intervals
-    ]
-    total = sum(required)
-    available = max(0.0, clip_right - pad_right_max - start0)
-    if total <= 0.0:
-        gaps = [0.0 for _ in required]
-    elif total <= available:
-        extra = available - total
-        weights = [float(end - start) for start, end in intervals]
-        weight_sum = sum(weights) or 1.0
-        gaps = [
-            need + extra * weight / weight_sum
-            for need, weight in zip(required, weights, strict=True)
-        ]
-    else:
-        # The cell is narrower than the union requirement (its width comes
-        # from the widest single part).  Compress uniformly; per-part order
-        # and monotone spacing are preserved because requirements shrink
-        # proportionally rather than dropping to zero selectively.
-        scale = available / total
-        gaps = [need * scale for need in required]
-    positions = {union[0]: start0}
-    for (start, end), gap in zip(intervals, gaps, strict=True):
-        positions[end] = positions[start] + gap
-    return positions
-
-
-def _union_interval_shares(
-    part_maps: list[dict[Fraction, float]], start: Fraction, end: Fraction
-) -> float:
-    """Return the maximum x span any part needs across the onset interval.
-
-    A part whose own onsets bracket the interval contributes its proportional
-    share of the bracketed span; summing the shares over the union intervals
-    inside a part's own gap reproduces that gap, so per-part minimum spacing
-    survives the max() aggregation.
-    """
-    need = 0.0
-    for positions in part_maps:
-        prev = max((onset for onset in positions if onset <= start), default=None)
-        nxt = min((onset for onset in positions if onset >= end), default=None)
-        if prev is None or nxt is None or nxt <= prev:
-            continue
-        span = positions[nxt] - positions[prev]
-        need = max(need, span * float((end - start) / (nxt - prev)))
-    return need
+    profile = _spacing_profile(measures, style, common_shortest=common_shortest)
+    return profile.positions(x + style.barline_gutter, x + width - style.barline_gutter)
 
 
 def _system_common_shortest_duration(cells: list[_Cell]) -> Fraction:
@@ -1678,38 +1471,10 @@ def _system_common_shortest_duration(cells: list[_Cell]) -> Fraction:
     return min(prevailing, Fraction(1, 2))
 
 
-def _common_shortest_duration(events: list[Event]) -> Fraction:
-    durations = [event.duration for event in events if event.duration > 0]
-    if not durations:
-        return Fraction(1, 2)
-    counts = Counter(durations)
-    return min(min(counts, key=lambda value: (-counts[value], value)), Fraction(1, 2))
-
-
 def _duration_spring(
-    duration: Fraction,
-    common_shortest: Fraction,
-    style: PublicationStyle,
+    duration: Fraction, common_shortest: Fraction, style: PublicationStyle
 ) -> float:
-    if duration <= 0 or common_shortest <= 0:
-        return style.minimum_event_gap
-    ratio = float(duration / common_shortest)
-    if ratio >= 1.0:
-        return style.minimum_event_gap + style.spacing_increment * math.log2(ratio)
-    return max(16.0, style.minimum_event_gap * ratio)
-
-
-def _same_tuplet_group(previous: Event, current: Event) -> bool:
-    return bool(previous.tuplet_id and previous.tuplet_id == current.tuplet_id)
-
-
-def _is_short_note_pair(previous: Event, current: Event) -> bool:
-    return (
-        previous.kind == "note"
-        and current.kind == "note"
-        and previous.duration <= Fraction(1, 2)
-        and current.duration <= Fraction(1, 2)
-    )
+    return duration_spring(duration, common_shortest, style)
 
 
 def _rhythm_edge_padding(
@@ -1731,163 +1496,8 @@ def _rhythm_edge_padding(
     return left, right
 
 
-def _boundary_extra_gap(
-    previous: Event, current: Event, crosses_beat: bool, style: PublicationStyle
-) -> float:
-    extra = 0.0
-    if _is_tuplet(previous) or _is_tuplet(current):
-        extra = style.tuplet_boundary_gap
-    if crosses_beat:
-        extra = max(extra, style.beat_boundary_gap)
-    return extra
-
-
-def _hard_event_gaps(
-    events: list[Event],
-    extents: list[tuple[float, float, float, float]],
-    style: PublicationStyle,
-    beat_boundaries: list[Fraction] | None = None,
-) -> list[float]:
-    """Return the gaps that no compaction may cross.
-
-    Unlike :func:`_minimum_event_gaps` this omits the duration spring, which is
-    a spacing *preference* rather than a physical constraint: the short-note
-    control has to be able to compress past it. What remains is the ink
-    collision floor plus the tuplet and beat-boundary reservations, so tightening
-    the control can never overlap glyphs nor flatten the beat division.
-    """
-    subdivided = _subdivided_beat_crossings(events, beat_boundaries)
-    gaps: list[float] = []
-    for index in range(1, len(events)):
-        previous = events[index - 1]
-        current = events[index]
-        collision_gap = (
-            extents[index - 1][1] - extents[index][0] + style.event_clearance
-        )
-        if _same_tuplet_group(previous, current):
-            gaps.append(collision_gap)
-            continue
-        gaps.append(
-            collision_gap
-            + _boundary_extra_gap(previous, current, subdivided[index - 1], style)
-        )
-    return gaps
-
-
-def _minimum_event_gaps(
-    events: list[Event],
-    extents: list[tuple[float, float, float, float]],
-    common_shortest: Fraction,
-    style: PublicationStyle,
-    beat_boundaries: list[Fraction] | None = None,
-) -> list[float]:
-    subdivided = _subdivided_beat_crossings(events, beat_boundaries)
-    gaps: list[float] = []
-    for index in range(1, len(events)):
-        previous = events[index - 1]
-        current = events[index]
-        previous_right = extents[index - 1][1]
-        current_left = extents[index][0]
-        collision_gap = previous_right - current_left + style.event_clearance
-        previous_start = previous.start if previous.start is not None else Fraction(0)
-        current_start = (
-            current.start
-            if current.start is not None
-            else previous_start + previous.duration
-        )
-        time_gap = _duration_spring(
-            current_start - previous_start,
-            common_shortest,
-            style,
-        )
-        if _same_tuplet_group(previous, current):
-            time_gap = max(18.0, style.minimum_event_gap * 0.72)
-            gaps.append(max(collision_gap, time_gap))
-            continue
-        base_gap = max(collision_gap, time_gap)
-        gaps.append(
-            base_gap
-            + _boundary_extra_gap(previous, current, subdivided[index - 1], style)
-        )
-    return gaps
-
-
 def _beat_boundaries(measure: Measure) -> list[Fraction]:
-    """Return sorted beat-start positions plus the final end position.
-
-    Prefers ``measure.beats`` (authoritative parser output); falls back to a
-    simple-meter subdivision derived from ``beat_type`` and ``duration`` for raw
-    measures constructed without going through the parser.
-    """
-    if measure.beats:
-        starts = [beat.start for beat in measure.beats]
-        last = measure.beats[-1]
-        return [*starts, last.start + last.duration]
-    beat_unit = Fraction(4, max(1, measure.beat_type))
-    if measure.duration > 0:
-        count = max(1, round(measure.duration / beat_unit))
-    else:
-        count = max(1, measure.beats_per_measure)
-    return [beat_unit * index for index in range(count + 1)]
-
-
-def _subdivided_beat_crossings(
-    events: list[Event],
-    beat_boundaries: list[Fraction] | None,
-) -> list[bool]:
-    """For each gap between consecutive events, report whether it crosses a beat
-    boundary whose preceding beat holds more than one event.
-
-    Events are assumed to be ordered by start (as produced by the renderer's
-    sort). The returned list has ``len(events) - 1`` entries.
-    """
-    if not beat_boundaries or len(beat_boundaries) < 2 or len(events) < 2:
-        return [False] * max(0, len(events) - 1)
-
-    interior = beat_boundaries[1:-1]
-    if not interior:
-        return [False] * (len(events) - 1)
-
-    starts: list[Fraction] = []
-    cursor = Fraction(0)
-    for event in events:
-        start = event.start if event.start is not None else cursor
-        starts.append(start)
-        cursor = start + event.duration
-
-    def beat_index(start: Fraction) -> int:
-        index = 0
-        for boundary in interior:
-            if start >= boundary:
-                index += 1
-            else:
-                break
-        return index
-
-    beat_of = [beat_index(start) for start in starts]
-    events_per_beat: dict[int, int] = {}
-    for index in beat_of:
-        events_per_beat[index] = events_per_beat.get(index, 0) + 1
-
-    crossings: list[bool] = []
-    for gap_index in range(1, len(events)):
-        previous_beat = beat_of[gap_index - 1]
-        current_beat = beat_of[gap_index]
-        crossings.append(
-            current_beat > previous_beat and events_per_beat[previous_beat] > 1
-        )
-    return crossings
-
-
-def _tuplet_run_count(events: list[Event]) -> int:
-    count = 0
-    previous_id: str | None = None
-    for event in events:
-        current_id = event.tuplet_id
-        if current_id and current_id != previous_id:
-            count += 1
-        previous_id = current_id
-    return count
+    return beat_group_boundaries(measure)
 
 
 def _event_visual_extents(
@@ -1895,50 +1505,6 @@ def _event_visual_extents(
 ) -> tuple[float, float, float, float]:
     box = measure_event_ink(event, style)
     return box.left, box.right, box.top, box.bottom
-
-
-def _measure_event_visual_extents(
-    events: list[Event], measure: Measure, style: PublicationStyle
-) -> list[tuple[float, float, float, float]]:
-    """Event ink plus timed lyric ink that is not already attached to an event."""
-    extents = [
-        _event_visual_extents(replace(event, lyric=None, lyrics={}), style)
-        for event in events
-    ]
-    if not events:
-        return extents
-    for block in _measure_text_blocks(measure):
-        if block.role != "lyric" or block.start is None:
-            continue
-        start = block.start
-        target = next(
-            (
-                index
-                for index, event in enumerate(events)
-                if (event.start or Fraction(0))
-                <= start
-                < (event.start or Fraction(0)) + event.duration
-            ),
-            None,
-        )
-        if target is None:
-            target = max(
-                range(len(events)),
-                key=lambda index: events[index].start or Fraction(0),
-            )
-        font_size = block.font_size or style.lyric_size
-        ink_left, top, _right, bottom = font_registry().ink_bounds(
-            block.text, font_size, 500
-        )
-        left, right, old_top, old_bottom = extents[target]
-        lyric_box = lyric_text_box(block.text, font_size)
-        extents[target] = (
-            min(left, lyric_box.left),
-            max(right, lyric_box.right),
-            old_top,
-            old_bottom,
-        )
-    return extents
 
 
 def _continuing_spanners_by_cell(
@@ -1995,28 +1561,23 @@ def _break_systems(
     continuation_states = _continuing_spanners_by_cell(cells)
     start = 0
     measures_per_system = style.measures_per_system
+    fixed_plan = (
+        _fixed_system_plan(cells, style, measures_per_system)
+        if measures_per_system
+        else []
+    )
     ends = (
-        _fixed_system_ends(cells, style, measures_per_system)
+        [end for end, _widths in fixed_plan]
         if measures_per_system
         else _optimal_system_ends(cells, style)
     )
-    for end in ends:
+    for row_index, end in enumerate(ends):
         row = cells[start:end]
-        if measures_per_system:
-            # Every row uses the same column grid, including short final rows and
-            # rows ended early by explicit breaks or width protection.
-            widths = _fixed_system_widths(row, style, measures_per_system)
-        else:
-            natural = sum(cell.width for cell in row)
-            is_last = end == len(cells)
-            target = (
-                natural
-                if is_last
-                and natural < style.content_width * style.last_line_fill_threshold
-                else style.content_width
-            )
-            scale = target / natural if natural else 1.0
-            widths = [cell.width * scale for cell in row]
+        widths = (
+            fixed_plan[row_index][1]
+            if measures_per_system
+            else _system_widths(row, style, fill=end != len(cells))
+        )
         layouts = _system_part_layouts(
             row,
             widths,
@@ -2198,6 +1759,16 @@ def _system_part_layouts(
             default=14.0,
         )
         annotation_top = math.inf
+        number_bottom = max(
+            (
+                font_registry().ink_bounds(
+                    str(measure.display_number), style.measure_number_size
+                )[3]
+                for measure, _width in measures
+            ),
+            default=0.0,
+        )
+        number_baseline = min(-9.0, top_ink - style.event_clearance - number_bottom)
         annotation_labels: list[tuple[str, float]] = []
         if show_measure_numbers and index == 0:
             annotation_labels.extend(
@@ -2222,7 +1793,8 @@ def _system_part_layouts(
             _left, ink_top, _right, _bottom = font_registry().ink_bounds(
                 label, font_size
             )
-            annotation_top = min(annotation_top, -9.0 + ink_top)
+            baseline = -9.0 if label.startswith(("*", "♩")) else number_baseline
+            annotation_top = min(annotation_top, baseline + ink_top)
         if style.measures_per_system:
             top_ink = min(top_ink, annotation_top)
         ending_bracket_offset = 22.0
@@ -2283,6 +1855,7 @@ def _system_part_layouts(
                 text_offset,
                 top_ink,
                 ending_bracket_offset,
+                number_baseline,
             )
         )
         if index + 1 < len(part_keys):
@@ -2419,8 +1992,9 @@ def _part_vertical_envelope(
             _left, ink_top, _right, ink_bottom = font_registry().ink_bounds(
                 label, font_size
             )
-            top = min(top, staff_y - 9 + ink_top)
-            bottom = max(bottom, staff_y - 9 + ink_bottom)
+            baseline = -9.0 if label.startswith(("*", "♩")) else part.number_baseline
+            top = min(top, staff_y + baseline + ink_top)
+            bottom = max(bottom, staff_y + baseline + ink_bottom)
 
         for event in _visual_events(measure):
             lane_offset = part.lanes.get(lane_key(event), 0.0) if part.lanes else 0.0
@@ -2558,58 +2132,132 @@ def _boundary_penalties(cells: list[_Cell], style: PublicationStyle) -> list[flo
     return penalties
 
 
-def _fixed_cell_column_span(
-    cell: _Cell, style: PublicationStyle, measures_per_system: int
-) -> int:
-    column_width = style.content_width / measures_per_system
-    fit_width = column_width * style.max_system_overflow_ratio
-    return min(
-        measures_per_system,
-        max(1, math.ceil(max(0.0, cell.width - 1e-6) / fit_width)),
-    )
-
-
-def _fixed_system_widths(
-    row: list[_Cell], style: PublicationStyle, measures_per_system: int
+def _system_widths(
+    row: list[_Cell], style: PublicationStyle, *, fill: bool
 ) -> list[float]:
-    column_width = style.content_width / measures_per_system
+    minimum = [cell.minimum_width or cell.width for cell in row]
+    natural = [max(low, cell.width) for cell, low in zip(row, minimum, strict=True)]
+    total_min = sum(minimum)
+    if total_min > style.content_width + 1e-6:
+        number = (
+            row[0].measures[0].display_number
+            if row and row[0].measures and row[0].measures[0]
+            else (row[0].index + 1 if row else 1)
+        )
+        raise RenderError(f"第 {number} 小节符号超出页面可用宽度，请调整字号或页面边距")
+    total = sum(natural)
+    target = (
+        style.content_width
+        if fill or total >= style.content_width * style.last_line_fill_threshold
+        else total
+    )
+    return _distribute_widths(minimum, natural, target, style)
+
+
+def _distribute_widths(
+    minimum: list[float], natural: list[float], target: float, style: PublicationStyle
+) -> list[float]:
+    total_min = sum(minimum)
+    total = sum(natural)
+    if target < total:
+        elasticity = total - total_min
+        ratio = (target - total_min) / elasticity if elasticity else 0.0
+        return [
+            low + ratio * (ideal - low)
+            for low, ideal in zip(minimum, natural, strict=True)
+        ]
+    weights = [max(1.0, ideal - 2 * style.barline_gutter) for ideal in natural]
     return [
-        column_width * _fixed_cell_column_span(cell, style, measures_per_system)
-        for cell in row
+        ideal + (target - total) * weight / sum(weights)
+        for ideal, weight in zip(natural, weights, strict=True)
     ]
 
 
-def _fixed_system_ends(
+def _initial_fixed_system_ends(
     cells: list[_Cell], style: PublicationStyle, measures_per_system: int
 ) -> list[int]:
-    """Pack measures into an aligned grid, expanding dense cells across columns."""
-    ends: list[int] = []
+    """Prefer the requested count; fewer bars only when hard widths cannot fit."""
+    ends = []
     start = 0
-    count = len(cells)
-    while start < count:
-        target = min(start + measures_per_system, count)
-        width = 0.0
-        columns_used = 0
+    while start < len(cells):
         end = start
-        for index in range(start, target):
-            cell = cells[index]
-            if index > start and (cell.forced_system or cell.forced_page):
+        width = 0.0
+        while end < min(start + measures_per_system, len(cells)):
+            cell = cells[end]
+            if end > start and (cell.forced_system or cell.forced_page):
                 break
-            span = _fixed_cell_column_span(cell, style, measures_per_system)
-            next_width = width + cell.width
-            if index > start and (
-                columns_used + span > measures_per_system
-                or next_width > style.content_width
-            ):
+            minimum = cell.minimum_width or cell.width
+            if width + minimum > style.content_width + 1e-6:
+                if end == start:
+                    _system_widths([cell], style, fill=True)
                 break
-            width = next_width
-            columns_used += span
-            end = index + 1
-        if end == start:
-            end = start + 1
+            width += minimum
+            end += 1
         ends.append(end)
         start = end
     return ends
+
+
+def _fixed_system_plan(
+    cells: list[_Cell], style: PublicationStyle, count: int
+) -> list[tuple[int, list[float]]]:
+    """Share one document-wide column template, including incomplete rows."""
+    ends = _initial_fixed_system_ends(cells, style, count)
+    columns: list[list[_Cell]] = [[] for _ in range(count)]
+    start = 0
+    for end in ends:
+        for index, cell in enumerate(cells[start:end]):
+            columns[index].append(cell)
+        start = end
+    minimum = [
+        max((cell.minimum_width or cell.width for cell in column), default=0.0)
+        for column in columns
+    ]
+    if sum(minimum) <= style.content_width + 1e-6:
+        fallback = sum(cell.width for cell in cells) / max(1, len(cells))
+        natural = [
+            max(
+                minimum[index],
+                sum(cell.width for cell in column) / len(column)
+                if column
+                else fallback,
+            )
+            for index, column in enumerate(columns)
+        ]
+        template = _distribute_widths(minimum, natural, style.content_width, style)
+        result = []
+        start = 0
+        for end in ends:
+            result.append((end, template[: end - start]))
+            start = end
+        return result
+
+    # Exceptional dense bars may span grid columns; no boundary is allowed
+    # to drift off the template and no glyph is compressed below its hard floor.
+    column_width = style.content_width / count
+    result = []
+    start = 0
+    while start < len(cells):
+        end = start
+        used = 0
+        widths = []
+        while end < len(cells):
+            cell = cells[end]
+            if end > start and (cell.forced_system or cell.forced_page):
+                break
+            span = max(
+                1, math.ceil(((cell.minimum_width or cell.width) - 1e-6) / column_width)
+            )
+            if span > count:
+                _system_widths([cell], style, fill=True)
+            if used + span > count:
+                break
+            used += span
+            widths.append(span * column_width)
+            end += 1
+        result.append((end, widths))
+        start = end
+    return result
 
 
 def _optimal_system_ends(cells: list[_Cell], style: PublicationStyle) -> list[int]:
@@ -2621,12 +2269,16 @@ def _optimal_system_ends(cells: list[_Cell], style: PublicationStyle) -> list[in
     costs[count] = 0.0
     for start in range(count - 1, -1, -1):
         width = 0.0
+        minimum = 0.0
         for end in range(start + 1, count + 1):
             if end > start + 1 and (
                 cells[end - 1].forced_system or cells[end - 1].forced_page
             ):
                 break
             width += cells[end - 1].width
+            minimum += cells[end - 1].minimum_width
+            if minimum > style.content_width + 1e-6 and end > start + 1:
+                break
             ratio = width / style.content_width
             if ratio > style.max_system_overflow_ratio and end > start + 1:
                 break
@@ -2765,89 +2417,56 @@ def _paginate_fixed(
     *,
     show_title: bool = True,
 ) -> list[list[_System]]:
-    """Pack local envelopes, using bounded elastic whitespace before a break.
-
-    Multi-part fixed-grid systems are intentionally capped at four systems per
-    page.  A fifth system can technically fit on A4 after vertical compression,
-    but it makes the three-part publication look crowded and leaves too little
-    separation between complete systems.  Single-part scores retain the
-    height-driven packing behavior used by the general publication corpus.
-    """
+    """Minimize page count, then balance ink occupancy across those pages."""
     for system in systems:
         _apply_spacing_compression(system, 0.0)
-    pages: list[list[_System]] = []
-    current: list[_System] = []
+    count = len(systems)
+    if not count:
+        return [[]]
     first_header = (
         style.first_system_header_height
         if show_title
         else style.continuation_system_header_height
     )
-    content_bottom = _pagination_bottom(style)
-    system_cap = 4 if any(len(system.parts) > 1 for system in systems) else None
-    for system in systems:
-        header = first_header if not pages else style.continuation_system_header_height
-        available = content_bottom - style.margin_top - header
-        candidate = [*current, system]
-        minimum_height = _fixed_systems_height(candidate, style, pitch, compression=1.0)
-        if current and (
-            minimum_height > available + 1e-6
-            or system.force_page_before
-            or (system_cap is not None and len(current) >= system_cap)
-        ):
-            pages.append(current)
-            current = []
-            available = (
-                content_bottom
-                - style.margin_top
-                - style.continuation_system_header_height
-            )
-            minimum_height = _fixed_systems_height(
-                [system], style, pitch, compression=1.0
-            )
-        if minimum_height > available + 1e-6:
-            raise RenderError("单个谱表系统超出页面可用高度，请缩小谱面或增大页面")
-        current.append(system)
-    if current or not pages:
-        pages.append(current)
-    # Prefer a balanced ending to a single orphan system. Never override a
-    # source's explicit page break, and never add an extra page for balancing.
-    if len(pages) > 1 and len(pages[-1]) == 1 and len(pages[-2]) >= 3:
-        if not pages[-1][0].force_page_before:
-            candidate = [pages[-2][-1], *pages[-1]]
-            available = (
-                content_bottom
-                - style.margin_top
-                - style.continuation_system_header_height
-            )
-            if (
-                _fixed_systems_height(candidate, style, pitch, compression=1.0)
-                <= available
-            ):
-                pages[-2].pop()
-                pages[-1] = candidate
-    if system_cap is not None and len(pages) > 1 and len(pages[-1]) < 3:
-        previous, last = pages[-2], pages[-1]
-        move_count = min(3 - len(last), max(0, len(previous) - 3))
-        if move_count:
-            moved = previous[-move_count:]
-            candidate = [*moved, *last]
-            available = (
-                content_bottom
-                - style.margin_top
-                - style.continuation_system_header_height
-            )
-            if (
-                not moved[0].force_page_before
-                and _fixed_systems_height(candidate, style, pitch, compression=1.0)
-                <= available
-            ):
-                del previous[-move_count:]
-                pages[-1] = candidate
-    for page_index, page in enumerate(pages):
-        header = (
-            first_header if page_index == 0 else style.continuation_system_header_height
-        )
-        available = content_bottom - style.margin_top - header
+    bottom = _pagination_bottom(style)
+    best: list[tuple[int, float, int] | None] = [None] * (count + 1)
+    best[count] = (0, 0.0, count)
+    for start in range(count - 1, -1, -1):
+        header = first_header if start == 0 else style.continuation_system_header_height
+        available = bottom - style.margin_top - header
+        for end in range(start + 1, count + 1):
+            if end > start + 1 and systems[end - 1].force_page_before:
+                break
+            candidate = systems[start:end]
+            minimum = _fixed_systems_height(candidate, style, pitch, compression=1.0)
+            if minimum > available + 1e-6:
+                break
+            tail = best[end]
+            if tail is None:
+                continue
+            natural = _fixed_systems_height(candidate, style, pitch, compression=0.0)
+            slack = max(0.0, available - natural)
+            penalty = 1000.0 * (slack / max(1.0, available)) ** 2
+            if len(candidate) < 3:
+                penalty += 500.0
+            if natural > available:
+                penalty += (
+                    5.0 * ((natural - available) / max(1.0, natural - minimum)) ** 2
+                )
+            option = (tail[0] + 1, penalty + tail[1], end)
+            if best[start] is None or option[:2] < best[start][:2]:
+                best[start] = option
+    if best[0] is None:
+        raise RenderError("单个谱表系统超出页面可用高度，请缩小谱面或增大页面")
+    pages = []
+    start = 0
+    while start < count:
+        end = best[start][2]
+        pages.append(systems[start:end])
+        start = end
+    for index, page in enumerate(pages):
+        header = first_header if index == 0 else style.continuation_system_header_height
+        available = bottom - style.margin_top - header
         compression = _page_spacing_compression(page, style, pitch, available)
         for system in page:
             _apply_spacing_compression(system, compression)
@@ -2881,9 +2500,9 @@ def _fixed_page_pitches(
 ) -> list[float]:
     """Return per-gap pitches for fixed-column systems.
 
-    Pagination and drawing use the same collision-safe pair distances. Add
-    only a bounded, equal page-fill increment on non-final pages; never spend
-    the remaining whitespace inside a piano group.
+    Pagination and drawing use the same collision-safe pair distances. Fill
+    populated pages by distributing remaining space between complete systems,
+    including a sufficiently populated last page; sparse excerpts stay natural.
     """
     if len(page_systems) < 2:
         return []
@@ -2891,8 +2510,6 @@ def _fixed_page_pitches(
         _fixed_pair_pitch(left, right, style, base_pitch)
         for left, right in zip(page_systems, page_systems[1:], strict=False)
     ]
-    if page_index == page_count - 1:
-        return pitches
     header_height = (
         style.first_system_header_height
         if page_index == 0 and show_title
@@ -2903,7 +2520,9 @@ def _fixed_page_pitches(
     used += sum(pitches)
     used += _vertical_metrics(page_systems[-1], style).below
     slack = max(0.0, _pagination_bottom(style) - used)
-    extra = min(slack / (len(pitches) + 0.5), 2 * style.system_gap)
+    available = _pagination_bottom(style) - style.margin_top - header_height
+    occupied = available - slack
+    extra = slack / len(pitches) if occupied >= available * 0.60 else 0.0
     return [pitch + extra for pitch in pitches]
 
 
@@ -2918,8 +2537,7 @@ def _page_system_gap(
 ) -> float:
     """Return one justified gap for this page without changing system content."""
     base_gap = style.system_gap
-    is_last_page = page_index == page_count - 1
-    if fit_content_height or is_last_page or len(page_systems) <= 1:
+    if fit_content_height or len(page_systems) <= 1:
         return base_gap
     header_height = (
         style.first_system_header_height
@@ -2930,7 +2548,9 @@ def _page_system_gap(
     used += sum(system.height for system in page_systems)
     used += (len(page_systems) - 1) * base_gap
     slack = max(0.0, _pagination_bottom(style) - used)
-    extra_gap = min(slack / (len(page_systems) - 1), 2 * base_gap)
+    available = _pagination_bottom(style) - style.margin_top - header_height
+    occupied = available - slack
+    extra_gap = slack / (len(page_systems) - 1) if occupied >= available * 0.60 else 0.0
     return base_gap + extra_gap
 
 
@@ -3079,75 +2699,6 @@ def _page_chrome(
         )
 
 
-def _event_x(
-    event: Event, position: int, count: int, left: float, right: float, measure: Measure
-) -> float:
-    if event.start is not None and measure.duration > 0:
-        ratio = max(0.0, min(1.0, float(event.start / measure.duration)))
-        return left + (right - left) * ratio
-    return left + (right - left) * ((position + 0.5) / max(1, count))
-
-
-def _full_measure_unit_positions(
-    events: list[Event],
-    left: float,
-    right: float,
-    measure: Measure,
-    style: PublicationStyle,
-) -> list[float] | None:
-    """Center one complete optical unit, including split extension-line runs."""
-
-    groups: list[list[Event]] = []
-    current: list[Event] = []
-    for event in events:
-        if event.kind != "extension" or not current:
-            current = []
-            groups.append(current)
-        current.append(event)
-
-    def is_full_unit(group: list[Event]) -> bool:
-        start = group[0].start or Fraction(0)
-        end = max((event.start or Fraction(0)) + event.duration for event in group)
-        return (
-            start == 0
-            and end >= measure.duration
-            and (
-                len(group) == 1 or all(event.kind == "extension" for event in group[1:])
-            )
-        )
-
-    generated_rest_run = all(
-        event.kind == "rest" and event.generated for event in events
-    )
-    if not generated_rest_run and not all(is_full_unit(group) for group in groups):
-        return None
-    if generated_rest_run and (
-        min(event.start or Fraction(0) for event in events) != 0
-        or max((event.start or Fraction(0)) + event.duration for event in events)
-        < measure.duration
-    ):
-        return None
-
-    positions = [
-        left + (right - left) * float((event.start or Fraction(0)) / measure.duration)
-        for event in events
-    ]
-    boxes = [
-        _event_visual_extents(
-            replace(event, lyric=None, lyrics={}, dynamic=None), style
-        )
-        for event in events
-    ]
-    ink_left = min(
-        position + box[0] for position, box in zip(positions, boxes, strict=True)
-    )
-    ink_right = max(
-        position + box[1] for position, box in zip(positions, boxes, strict=True)
-    )
-    shift = (left + right - ink_left - ink_right) / 2
-    return [position + shift for position in positions]
-
-
 def _fixed_time_positions(
     events: list[Event],
     left: float,
@@ -3157,168 +2708,19 @@ def _fixed_time_positions(
     *,
     common_shortest: Fraction | None = None,
 ) -> list[float] | None:
-    """Justify fixed-layout events with shared nonlinear duration springs."""
-    if not events or measure.duration <= 0:
-        return None
-    if any(event.start is None for event in events):
-        return None
-    centered = _full_measure_unit_positions(events, left, right, measure, style)
-    if centered is not None:
-        return centered
-
-    effective_duration = max(
-        measure.duration,
-        max((event.start or Fraction(0)) + event.duration for event in events),
-    )
-    # Underfull input keeps nominal time positions so a rhythm error does not
-    # look like intentional full-measure justification.
-    if (
-        max((event.start or Fraction(0)) + event.duration for event in events)
-        < measure.duration
-    ):
-        return [
-            left
-            + (right - left) * float((event.start or Fraction(0)) / measure.duration)
-            for event in events
-        ]
-
-    ordered = sorted(events, key=lambda event: event.start or Fraction(0))
-    onsets = sorted({event.start or Fraction(0) for event in ordered})
-    by_onset_events = [
-        [event for event in ordered if (event.start or Fraction(0)) == onset]
-        for onset in onsets
-    ]
-    # Attachments participate in the shared hard floor. They can widen a time
-    # interval, but can never move just one voice away from the common onset.
-    extents: list[tuple[float, float]] = []
-    representatives: list[Event] = []
-    for onset, group in zip(onsets, by_onset_events, strict=True):
-        group_blocks = []
-        for block in measure.text_blocks:
-            if block.role != "lyric" or block.start is None:
-                continue
-            target = next(
-                (
-                    event
-                    for event in ordered
-                    if (event.start or Fraction(0))
-                    <= block.start
-                    < (event.start or Fraction(0)) + event.duration
-                ),
-                ordered[-1],
-            )
-            if (target.start or Fraction(0)) == onset:
-                group_blocks.append(block)
-        probe = Measure(
-            "onset",
-            duration=measure.duration,
-            events=group,
-            text_blocks=group_blocks,
+    if not events:
+        return []
+    resolved: list[Event] = []
+    cursor = Fraction(0)
+    for event in events:
+        resolved.append(
+            event if event.start is not None else replace(event, start=cursor)
         )
-        boxes = _measure_event_visual_extents(group, probe, style)
-        extents.append((min(box[0] for box in boxes), max(box[1] for box in boxes)))
-        representatives.append(group[0])
-
-    pad_left, pad_right = _rhythm_edge_padding(representatives, style)
-    first_clearance = style.event_clearance + pad_left - extents[0][0]
-    last_clearance = style.event_clearance + pad_right + extents[-1][1]
-    shortest = common_shortest or _common_shortest_duration(ordered)
-    boundaries = _beat_boundaries(measure)
-    subdivided = _subdivided_beat_crossings(representatives, boundaries)
-    # Uniform subdivisions stay exactly uniform so shared longer-note onsets keep
-    # their geometric midpoint. Mixed-duration crossings may use optical room.
-    fixed_beat_crossings = [
-        index > 0
-        and crosses
-        and onsets[index] - onsets[index - 1] != onsets[index + 1] - onsets[index]
-        for index, crosses in enumerate(subdivided)
-    ]
-    preferred_gaps: list[float] = []
-    spring_weights: list[float] = []
-    for index in range(1, len(onsets)):
-        previous = representatives[index - 1]
-        current = representatives[index]
-        delta = onsets[index] - onsets[index - 1]
-        spring = _duration_spring(delta, shortest, style)
-        if _same_tuplet_group(previous, current):
-            spring = max(18.0, style.minimum_event_gap * 0.72)
-        elif (
-            delta <= Fraction(1, 2)
-            and previous.kind == "note"
-            and current.kind == "note"
-        ):
-            spring *= style.short_note_gap_scale
-        collision = extents[index - 1][1] - extents[index][0] + style.event_clearance
-        boundary = (
-            0.0
-            if _same_tuplet_group(previous, current)
-            else _boundary_extra_gap(
-                previous, current, fixed_beat_crossings[index - 1], style
-            )
-        )
-        preferred_gaps.append(max(collision, spring) + boundary)
-        spring_weights.append(max(0.0, spring))
-
-    # A tuplet run is one optical unit: an attachment on one member expands every
-    # internal gap equally instead of making the run alternately tight and loose.
-    index = 0
-    while index < len(representatives) - 1:
-        tuplet_id = representatives[index].tuplet_id
-        if not tuplet_id:
-            index += 1
-            continue
-        end = index + 1
-        while (
-            end < len(representatives) and representatives[end].tuplet_id == tuplet_id
-        ):
-            end += 1
-        gap_end = end - 1
-        if gap_end > index:
-            uniform_gap = max(preferred_gaps[index:gap_end])
-            preferred_gaps[index:gap_end] = [uniform_gap] * (gap_end - index)
-        index = end
-
-    # Leading and tail intervals participate in justification. In particular, a
-    # late first onset must not collapse onto the left barline.
-    leading_duration = onsets[0]
-    leading_spring = (
-        _duration_spring(leading_duration, shortest, style)
-        if leading_duration > 0
-        else 0.0
-    )
-    tail_duration = effective_duration - onsets[-1]
-    tail_spring = (
-        _duration_spring(tail_duration, shortest, style) if tail_duration > 0 else 0.0
-    )
-    if (
-        tail_duration > 0
-        and tail_duration <= Fraction(1, 2)
-        and representatives[-1].kind == "note"
-    ):
-        tail_spring *= style.short_note_gap_scale
-    spring_weights = [max(0.0, leading_spring), *spring_weights, max(0.0, tail_spring)]
-    base_width = first_clearance + sum(preferred_gaps) + last_clearance
-    available = right - left
-    if base_width > available:
-        # Extreme attachments can exceed the fixed cell. Preserve the page bounds
-        # and nominal ordering; scene QA reports the unavoidable ink collisions.
-        positions = []
-        for onset in onsets:
-            ideal = left + available * float(onset / effective_duration)
-            positions.append(max(left, min(right, ideal)))
-
-    spare = available - base_width
-    weight_total = sum(spring_weights)
-    leading_extra = spare * spring_weights[0] / weight_total if weight_total else 0.0
-    positions = [left + first_clearance + leading_extra]
-    for index, gap in enumerate(preferred_gaps):
-        extra = (
-            spare * spring_weights[index + 1] / weight_total if weight_total else 0.0
-        )
-        positions.append(positions[-1] + gap + extra)
-
-    by_onset = dict(zip(onsets, positions, strict=True))
-    return [by_onset[event.start or Fraction(0)] for event in events]
+        cursor = (resolved[-1].start or Fraction(0)) + event.duration
+    probe = replace(measure, events=resolved)
+    profile = _spacing_profile([probe], style, common_shortest=common_shortest)
+    positions = profile.positions(left, right)
+    return [positions[event.start or Fraction(0)] for event in resolved]
 
 
 def _event_positions(
@@ -3330,350 +2732,12 @@ def _event_positions(
     *,
     common_shortest: Fraction | None = None,
 ) -> list[float]:
-    ideal_positions = [
-        _event_x(event, index, len(events), left, right, measure)
-        for index, event in enumerate(events)
-    ]
-    if not ideal_positions:
-        return ideal_positions
-    if style.measures_per_system:
-        fixed_positions = _fixed_time_positions(
+    return (
+        _fixed_time_positions(
             events, left, right, measure, style, common_shortest=common_shortest
         )
-        if fixed_positions is not None:
-            return fixed_positions
-
-    extents = _measure_event_visual_extents(events, measure, style)
-    # No beat_boundaries here on purpose: the visible beat division is produced
-    # by _apply_beat_boundary_gaps as a ratio after justification. Letting the
-    # absolute beat_boundary_gap into the justification base would compound with
-    # that ratio instead of acting as a floor. The absolute value earns its keep
-    # in _intrinsic_measure_width (reserving cell room so the ratio stays
-    # feasible) and in _apply_short_note_gaps (a floor the compaction may not
-    # cross), both of which combine with the ratio by max().
-    minimum_gaps = _minimum_event_gaps(
-        events,
-        extents,
-        _common_shortest_duration(events),
-        style,
+        or []
     )
-    minimum_relative = [0.0]
-    for gap in minimum_gaps:
-        minimum_relative.append(minimum_relative[-1] + gap)
-    minimum_start = max(
-        left - event_extent[0] - offset
-        for event_extent, offset in zip(extents, minimum_relative, strict=True)
-    )
-    maximum_start = min(
-        right - event_extent[1] - offset
-        for event_extent, offset in zip(extents, minimum_relative, strict=True)
-    )
-    if minimum_start <= maximum_start and minimum_gaps:
-        ideal_gaps = [
-            max(0.0, ideal_positions[index] - ideal_positions[index - 1])
-            for index in range(1, len(events))
-        ]
-        ideal_total = sum(ideal_gaps)
-        gap_weights = [
-            ideal_gap / ideal_total if ideal_total else 1.0 / len(minimum_gaps)
-            for ideal_gap in ideal_gaps
-        ]
-        extra = maximum_start - minimum_start
-        gaps = [
-            minimum_gap + extra * weight
-            for minimum_gap, weight in zip(minimum_gaps, gap_weights, strict=True)
-        ]
-        relative = [0.0]
-        for gap in gaps:
-            relative.append(relative[-1] + gap)
-        start = minimum_start
-    else:
-        positions = _bounded_event_positions(
-            events, extents, left, right, ideal_positions, style, measure
-        )
-        return positions
-    positions = [start + offset for offset in relative]
-    if _tuplet_run_count(events) == 1:
-        index = 0
-        while index < len(events):
-            key = events[index].tuplet_id
-            if not key:
-                index += 1
-                continue
-            end = index + 1
-            while end < len(events) and events[end].tuplet_id == key:
-                end += 1
-            count = end - index
-            if count > 1:
-                current_span = positions[end - 1] - positions[index]
-                gap = min(
-                    current_span / (count - 1),
-                    max(18.0, style.minimum_event_gap * 0.72),
-                )
-                span = gap * (count - 1)
-                center = (positions[index] + positions[end - 1]) / 2
-                start = max(left, min(right - span, center - span / 2))
-                for offset in range(count):
-                    positions[index + offset] = start + offset * gap
-            index = end
-    _enforce_event_collisions(events, positions, style)
-    # Beat boundaries first: it redistributes at constant span, so every gap
-    # depends on the others' widths. Running it before the short-note control
-    # keeps that control's effect local to short-note gaps.
-    _apply_beat_boundary_gaps(events, positions, extents, measure, style)
-    _apply_short_note_gaps(events, positions, extents, left, right, measure, style)
-    _enforce_event_collisions(events, positions, style)
-    return positions
-
-
-def _enforce_event_collisions(
-    events: list[Event], positions: list[float], style: PublicationStyle
-) -> None:
-    for index in range(1, len(events)):
-        _previous_left, previous_right, _top, _bottom = _event_visual_extents(
-            events[index - 1], style
-        )
-        current_left, _current_right, _top, _bottom = _event_visual_extents(
-            events[index], style
-        )
-        positions[index] = max(
-            positions[index],
-            positions[index - 1]
-            + previous_right
-            - current_left
-            + style.event_clearance,
-        )
-
-
-def _apply_short_note_gaps(
-    events: list[Event],
-    positions: list[float],
-    extents: list[tuple[float, float, float, float]],
-    left: float,
-    right: float,
-    measure: Measure,
-    style: PublicationStyle,
-) -> None:
-    factor = style.short_note_gap_scale
-    if factor == 1.0 or len(events) < 2:
-        return
-    eligible = [
-        _is_short_note_pair(events[index - 1], events[index])
-        for index in range(1, len(events))
-    ]
-    if not any(eligible):
-        return
-    base_gaps = [
-        positions[index] - positions[index - 1] for index in range(1, len(positions))
-    ]
-    # Reuse the same hard floors the cell width reserved, so compaction cannot
-    # flatten the beat division. The duration spring is deliberately excluded:
-    # it is a preference the control is allowed to compress past.
-    collision_gaps = _hard_event_gaps(events, extents, style, _beat_boundaries(measure))
-
-    def candidate(
-        candidate_factor: float,
-    ) -> tuple[list[float], float, float]:
-        gaps = [
-            max(collision_gap, base_gap * candidate_factor) if is_eligible else base_gap
-            for base_gap, collision_gap, is_eligible in zip(
-                base_gaps, collision_gaps, eligible, strict=True
-            )
-        ]
-        relative = [0.0]
-        for gap in gaps:
-            relative.append(relative[-1] + gap)
-        minimum_start = max(
-            left - extent[0] - offset
-            for extent, offset in zip(extents, relative, strict=True)
-        )
-        maximum_start = min(
-            right - extent[1] - offset
-            for extent, offset in zip(extents, relative, strict=True)
-        )
-        return relative, minimum_start, maximum_start
-
-    relative, minimum_start, maximum_start = candidate(factor)
-    if minimum_start > maximum_start:
-        if factor < 1.0:
-            infeasible, feasible = factor, 1.0
-            for _ in range(40):
-                midpoint = (infeasible + feasible) / 2
-                result = candidate(midpoint)
-                if result[1] <= result[2]:
-                    feasible = midpoint
-                    relative, minimum_start, maximum_start = result
-                else:
-                    infeasible = midpoint
-        else:
-            feasible, infeasible = 1.0, factor
-            relative, minimum_start, maximum_start = candidate(feasible)
-            for _ in range(40):
-                midpoint = (feasible + infeasible) / 2
-                result = candidate(midpoint)
-                if result[1] <= result[2]:
-                    feasible = midpoint
-                    relative, minimum_start, maximum_start = result
-                else:
-                    infeasible = midpoint
-
-    original_center = (positions[0] + positions[-1]) / 2
-    preferred_start = original_center - relative[-1] / 2
-    start = max(minimum_start, min(maximum_start, preferred_start))
-    for index, offset in enumerate(relative):
-        positions[index] = start + offset
-
-
-def _redistribute_eligible_gaps(
-    positions: list[float],
-    extents: list[tuple[float, float, float, float]],
-    style: PublicationStyle,
-    eligible: list[bool],
-    locked: list[bool],
-    factor: float,
-) -> None:
-    """Widen the gaps flagged in ``eligible`` by ``factor`` at constant span.
-
-    A justified measure has no slack left, so the extra width is taken
-    proportionally from the adjustable non-eligible gaps rather than from the
-    margins. ``locked`` gaps neither widen nor donate, which keeps groups with
-    their own spacing contract (tuplets) intact. The total span is preserved, so
-    barlines do not move and the resulting ratio is independent of how far the
-    justification pass stretched the measure. Collision floors still win; if
-    they make the requested ratio infeasible a bisection retreats toward 1.0.
-    """
-    if factor == 1.0 or len(positions) < 2:
-        return
-    movable = [index for index, is_locked in enumerate(locked) if not is_locked]
-    if not any(eligible[index] for index in movable):
-        return
-    if all(eligible[index] for index in movable):
-        return
-    base_gaps = [
-        positions[index] - positions[index - 1] for index in range(1, len(positions))
-    ]
-    collision_gaps = [
-        extents[index - 1][1] - extents[index][0] + style.event_clearance
-        for index in range(1, len(extents))
-    ]
-    span = sum(base_gaps[index] for index in movable)
-    if span <= 0:
-        return
-
-    def candidate(candidate_factor: float) -> list[float] | None:
-        weights = [
-            base_gaps[index] * (candidate_factor if eligible[index] else 1.0)
-            for index in movable
-        ]
-        total = sum(weights)
-        if total <= 0:
-            return None
-        scale = span / total
-        gaps = list(base_gaps)
-        for index, weight in zip(movable, weights, strict=True):
-            gaps[index] = max(collision_gaps[index], weight * scale)
-        if sum(gaps[index] for index in movable) > span + 1e-9:
-            return None
-        return gaps
-
-    gaps = candidate(factor)
-    if gaps is None:
-        feasible, infeasible = 1.0, factor
-        gaps = candidate(feasible)
-        if gaps is None:
-            return
-        for _ in range(40):
-            midpoint = (feasible + infeasible) / 2
-            result = candidate(midpoint)
-            if result is None:
-                infeasible = midpoint
-            else:
-                feasible = midpoint
-                gaps = result
-
-    for index, gap in enumerate(gaps):
-        positions[index + 1] = positions[index] + gap
-
-
-def _apply_beat_boundary_gaps(
-    events: list[Event],
-    positions: list[float],
-    extents: list[tuple[float, float, float, float]],
-    measure: Measure,
-    style: PublicationStyle,
-) -> None:
-    """Widen gaps that cross a beat boundary out of a subdivided beat.
-
-    Applied after justification and at constant span, so the widening is a ratio
-    against the neighbouring within-beat gaps rather than an absolute increment
-    that the justification stretch would dilute. Tuplet gaps are locked out: a
-    tuplet run carries its own even-spacing contract.
-    """
-    if len(events) < 2:
-        return
-    eligible = _subdivided_beat_crossings(events, _beat_boundaries(measure))
-    locked = [
-        _is_tuplet(events[index - 1]) or _is_tuplet(events[index])
-        for index in range(1, len(events))
-    ]
-    _redistribute_eligible_gaps(
-        positions,
-        extents,
-        style,
-        eligible,
-        locked,
-        1.0 + style.beat_boundary_ratio,
-    )
-
-
-def _bounded_event_positions(
-    events: list[Event],
-    extents: list[tuple[float, float, float, float]],
-    left: float,
-    right: float,
-    ideal_positions: list[float],
-    style: PublicationStyle,
-    measure: Measure | None = None,
-) -> list[float]:
-    """Project an overfull event sequence into the content bounds.
-
-    The minimum collision constraints may be infeasible for an overfull bar.
-    In that case preserving the barline boundary is more important than
-    preserving every requested gap; actual collision reporting remains
-    deterministic through the existing scene QA.
-    """
-    if len(events) == 1:
-        extent = extents[0]
-        minimum_center = left - extent[0]
-        maximum_center = right - extent[1]
-        if minimum_center > maximum_center:
-            return [(left + right) / 2]
-        return [max(minimum_center, min(maximum_center, ideal_positions[0]))]
-    minimum_gaps = _minimum_event_gaps(
-        events,
-        extents,
-        _common_shortest_duration(events),
-        style,
-        _beat_boundaries(measure) if measure is not None else None,
-    )
-    start = left - extents[0][0]
-    end = right - extents[-1][1]
-    total = sum(minimum_gaps)
-    scale = (end - start) / total if total > 0 else 0.0
-    positions = [start]
-    for gap in minimum_gaps:
-        positions.append(positions[-1] + gap * scale)
-    for index, extent in enumerate(extents):
-        positions[index] = max(
-            left - extent[0], min(right - extent[1], positions[index])
-        )
-    for index in range(1, len(positions)):
-        positions[index] = max(positions[index], positions[index - 1])
-        positions[index] = min(positions[index], right - extents[index][1])
-    for index in range(len(positions) - 2, -1, -1):
-        positions[index] = min(positions[index], positions[index + 1])
-        positions[index] = max(positions[index], left - extents[index][0])
-    return positions
 
 
 def _draw_event(
@@ -3711,7 +2775,8 @@ def _draw_event(
             ]
         )
     )
-    layout_box = measure_event_ink(event, style, subtext_offset=subtext_offset)
+    event_layout = measure_event_layout(event, style, subtext_offset=subtext_offset)
+    layout_box = event_layout.ink_box
     left, right, top, bottom = (
         layout_box.left,
         layout_box.right,
@@ -3751,7 +2816,19 @@ def _draw_event(
     for role, role_ids in sorted(event.source_roles.items()):
         if role_ids:
             attrs[f"data-source-role-{role}"] = " ".join(role_ids)
-    group = SceneNode("g", attrs)
+    group = SceneNode(
+        "g",
+        attrs,
+        ink_boxes=tuple(
+            BBox(
+                x + part.ink_box.left,
+                y + part.ink_box.top,
+                part.ink_box.width,
+                part.ink_box.height,
+            )
+            for part in event_layout.parts
+        ),
+    )
     if event.kind == "rest" or not event.pitches:
         group.children.append(
             _text(
@@ -3803,12 +2880,13 @@ def _draw_extension_event(
     """Draw one beat-slot extension dash centered on its beat anchor."""
 
     scale = style.chord_rhythm_scale if event.chorded_extension else 1.0
-    left = x - 5.5 * scale
-    right = x + 5.5 * scale
+    left = x - style.extension_line_length * scale / 2
+    right = x + style.extension_line_length * scale / 2
     if right_limit is not None:
         right = min(right, right_limit)
-    top = y - 7.0 * scale
-    bottom = y - 5.0 * scale
+    cy = y + duration_extension_y(event, style)
+    top = cy - style.stroke_width * scale / 2
+    bottom = cy + style.stroke_width * scale / 2
     bbox = BBox(left, top, max(0.0, right - left), bottom - top)
     attrs: dict[str, str | float | int] = {
         "class": "source-anchor",
@@ -3821,9 +2899,7 @@ def _draw_extension_event(
     group = SceneNode("g", attrs)
     if right > left:
         group.children.append(
-            _line(
-                "extension-line", left, y - 6 * scale, right, y - 6 * scale, 1.7 * scale
-            )
+            _line("extension-line", left, cy, right, cy, style.stroke_width * scale)
         )
     scene.add(group)
     return _Anchor(x, y, bbox, event), False
@@ -3934,12 +3010,13 @@ def _draw_duration(
     chorded = len(event.pitches) > 1
     scale_x = style.chord_rhythm_scale if chorded else 1.0
     scale_y = style.chord_rhythm_scale if chorded else 1.0
+    extension_y = y + duration_extension_y(event, style)
     if duration > 1:
         extensions = max(0, math.ceil(float(duration)) - 1)
         extension_start = _duration_extension_start(event, style)
         for index in range(extensions):
             ex1 = x + extension_start + index * style.extension_line_step * scale_x
-            ex2 = ex1 + 11 * scale_x
+            ex2 = ex1 + style.extension_line_length * scale_x
             if right_limit is not None:
                 ex2 = min(ex2, right_limit)
             if ex2 <= ex1:
@@ -3948,22 +3025,22 @@ def _draw_duration(
                 _line(
                     "extension-line",
                     ex1,
-                    y - 6 * scale_y,
+                    extension_y,
                     ex2,
-                    y - 6 * scale_y,
-                    1.7 * scale_y,
+                    extension_y,
+                    style.stroke_width * scale_y,
                 )
             )
-    for index in range(event.dotted):
-        dot_x = x + 17 * scale_x + index * style.rhythm_dot_step * scale_x
-        radius = style.rhythm_dot_radius * scale_y
+    for box in duration_dot_boxes(event, style):
+        dot_x = x + (box.left + box.right) / 2
+        radius = box.width / 2
         if right_limit is not None and dot_x + radius > right_limit:
             continue
         group.children.append(
             _circle(
                 "rhythm-dot",
                 dot_x,
-                y - 7 * scale_y,
+                y + (box.top + box.bottom) / 2,
                 radius,
                 fill=True,
             )
@@ -4122,8 +3199,20 @@ def _draw_rhythm_segment(
             )
         )
     )
+    rhythm_scale = (
+        max(
+            (
+                style.chord_rhythm_scale if anchor.event.is_chord else 1.0
+                for anchor in anchors
+            ),
+            default=1.0,
+        )
+        if style
+        else 1.0
+    )
     if side_extent is None:
         side_extent = style.rhythm_line_side_extent if style else 12.0
+    side_extent *= rhythm_scale
     x1 = anchors[0].x - side_extent
     x2 = anchors[-1].x + side_extent
     if left_limit is not None:
@@ -4132,7 +3221,7 @@ def _draw_rhythm_segment(
         x2 = min(x2, right_limit)
     if x2 <= x1:
         return
-    stroke_width = 1.8
+    stroke_width = (style.rhythm_line_stroke_width if style else 1.8) * rhythm_scale
     source_ids_tuple = tuple(source_ids)
     layout = SpanLayout(
         "rhythm",
@@ -4168,11 +3257,22 @@ def _draw_rhythm_run(
     baseline: float | None = None,
     beat_boundaries: list[Fraction] | None = None,
 ) -> None:
+    rhythm_scale = (
+        max(
+            (
+                style.chord_rhythm_scale if anchor.event.is_chord else 1.0
+                for anchor in anchors
+            ),
+            default=1.0,
+        )
+        if style
+        else 1.0
+    )
     line_baseline = (
         baseline
         if baseline is not None
         else max(_rhythm_line_base(anchor, style) for anchor in anchors)
-    ) + (level - 1) * (style.rhythm_line_level_step if style else 6.0)
+    ) + (level - 1) * (style.rhythm_line_level_step if style else 6.0) * rhythm_scale
     if style is not None and style.break_beams_at_beat and beat_boundaries:
         groups = _split_anchors_by_beat(anchors, beat_boundaries)
         segment_extent: float | None = style.rhythm_line_break_segment_extent
@@ -4243,11 +3343,19 @@ def _draw_explicit_beam_level(
             )
             runs[key] = []
         elif status in {"forward-hook", "backward-hook"}:
+            rhythm_scale = (
+                style.chord_rhythm_scale if style and anchor.event.is_chord else 1.0
+            )
             line_baseline = (
                 baseline if baseline is not None else _rhythm_line_base(anchor, style)
-            ) + (level - 1) * (style.rhythm_line_level_step if style else 6.0)
+            ) + (level - 1) * (
+                style.rhythm_line_level_step if style else 6.0
+            ) * rhythm_scale
             if status == "forward-hook":
-                hook_length = style.beam_hook_length if style else 18.0
+                hook_length = (style.beam_hook_length if style else 18.0) * rhythm_scale
+                following = next((item for item in anchors if item.x > anchor.x), None)
+                if following is not None:
+                    hook_length = min(hook_length, (following.x - anchor.x) * 0.45)
                 hook = [
                     _Anchor(anchor.x, anchor.y, anchor.bbox, anchor.event),
                     _Anchor(
@@ -4258,7 +3366,12 @@ def _draw_explicit_beam_level(
                     ),
                 ]
             else:
-                hook_length = style.beam_hook_length if style else 18.0
+                hook_length = (style.beam_hook_length if style else 18.0) * rhythm_scale
+                preceding = next(
+                    (item for item in reversed(anchors) if item.x < anchor.x), None
+                )
+                if preceding is not None:
+                    hook_length = min(hook_length, (anchor.x - preceding.x) * 0.45)
                 hook = [
                     _Anchor(
                         anchor.x - hook_length,
@@ -4276,7 +3389,9 @@ def _draw_explicit_beam_level(
                 x2 = min(x2, right_limit)
             if x2 <= x1:
                 continue
-            stroke_width = 1.8
+            stroke_width = (
+                style.rhythm_line_stroke_width if style else 1.8
+            ) * rhythm_scale
             source_ids = tuple(
                 anchor.event.source_roles.get("note", []) or anchor.event.source_ids
             )
@@ -4336,7 +3451,7 @@ def _rhythm_line_offset(event: Event, style: PublicationStyle) -> float:
     rows = pitch_layouts(event, style)
     note_bottom = max((row.note_box.bottom for row in rows), default=0.0)
     rhythm_scale = style.chord_rhythm_scale if len(event.pitches) > 1 else 1.0
-    return note_bottom + 12.5 * rhythm_scale
+    return note_bottom + style.rhythm_line_gap * rhythm_scale
 
 
 def _is_tuplet(event: Event) -> bool:
@@ -4438,8 +3553,58 @@ def _spanner(
     style: PublicationStyle | None = None,
     continuation: bool = False,
     continuation_start: bool = False,
+    chord_tone: tuple[int, int] | None = None,
 ) -> SceneNode:
     resolved_style = style or PublicationStyle()
+    if (
+        kind == "tie"
+        and chord_tone is None
+        and (start.event.is_chord or end.event.is_chord)
+    ):
+        first_rows = pitch_layouts(start.event, resolved_style)
+        last_rows = pitch_layouts(end.event, resolved_style)
+        children = [
+            _spanner(
+                kind,
+                start,
+                end,
+                resolved_style,
+                continuation,
+                continuation_start,
+                (first_index, last_index),
+            )
+            for first_index, first in enumerate(first_rows)
+            for last_index, last in enumerate(last_rows)
+            if (first.pitch.degree, first.pitch.octave, first.pitch.accidental)
+            == (last.pitch.degree, last.pitch.octave, last.pitch.accidental)
+        ]
+        if children:
+            boxes = [
+                list(map(float, str(child.attrs["data-bbox"]).split()))
+                for child in children
+            ]
+            x = min(box[0] for box in boxes)
+            y = min(box[1] for box in boxes)
+            right = max(box[0] + box[2] for box in boxes)
+            bottom = max(box[1] + box[3] for box in boxes)
+            source_ids = tuple(
+                dict.fromkeys(
+                    source_id
+                    for child in children
+                    for source_id in str(child.attrs.get("data-source-ids", "")).split()
+                )
+            )
+            layout = SpanLayout(
+                "tie",
+                BBox(x, y, right - x, bottom - y),
+                source_ids,
+                "end" if continuation else "start" if continuation_start else "none",
+            )
+            return SceneNode(
+                "g",
+                {"class": "chord-ties", **_span_attrs(layout, role="tie")},
+                children=children,
+            )
     if kind == "slide":
         delta = (
             -resolved_style.slide_endpoint_offset
@@ -4466,6 +3631,11 @@ def _spanner(
             )
             height = -magnitude
             base = min(start.bbox.y, end.bbox.y) - resolved_style.spanner_base_clearance
+        elif chord_tone is not None:
+            first = pitch_layouts(start.event, resolved_style)[chord_tone[0]]
+            last = pitch_layouts(end.event, resolved_style)[chord_tone[1]]
+            base = start.y + first.note_box.top - 2.0
+            height = -min(resolved_style.chord_layer_gap * 0.45, span * 0.1)
         else:
             start_bottom = start.y + _event_attachment_bottom(
                 start.event, resolved_style
@@ -4476,6 +3646,7 @@ def _spanner(
                 resolved_style.note_size * 0.22,
                 min(resolved_style.note_size * 0.45, span * 0.12),
             )
+        end_base = end.y + last.note_box.top - 2.0 if chord_tone is not None else base
         control_left = sx + span * 0.33
         control_right = sx + span * 0.67
         endpoint = resolved_style.note_size * 0.025
@@ -4485,10 +3656,10 @@ def _spanner(
         d = (
             f"M {sx:g} {base - endpoint / 2:g} "
             f"C {control_left:g} {base + height - midpoint / 2:g} "
-            f"{control_right:g} {base + height - midpoint / 2:g} "
-            f"{ex:g} {base - endpoint / 2:g} "
-            f"L {ex:g} {base + endpoint / 2:g} "
-            f"C {control_right:g} {base + height + midpoint / 2:g} "
+            f"{control_right:g} {end_base + height - midpoint / 2:g} "
+            f"{ex:g} {end_base - endpoint / 2:g} "
+            f"L {ex:g} {end_base + endpoint / 2:g} "
+            f"C {control_right:g} {end_base + height + midpoint / 2:g} "
             f"{control_left:g} {base + height + midpoint / 2:g} "
             f"{sx:g} {base + endpoint / 2:g} Z"
         )
@@ -4509,8 +3680,8 @@ def _spanner(
         path_points=(
             (sx, base),
             (control_left, base + height),
-            (control_right, base + height),
-            (ex, base),
+            (control_right, end_base + height),
+            (ex, end_base),
         )
         if kind != "slide"
         else (
@@ -4823,6 +3994,7 @@ def _measure_text_layout(
     style: PublicationStyle,
     *,
     event_spans: list[tuple[Fraction, Fraction, float]] | None = None,
+    shared_positions: dict[Fraction, float] | None = None,
 ) -> list[TextLayout]:
     blocks = _measure_text_blocks(measure)
     if not blocks:
@@ -4838,41 +4010,15 @@ def _measure_text_layout(
     )
     inner_left = x + style.barline_gutter
     inner_right = x + width - style.barline_gutter
-    # 歌词/注解保持独立的时间比例映射，但映射区间两端对齐到音符排版
-    # 实际钉住的首/末音符中心（节奏线边距 + 首尾墨宽，与 _draw_measure
-    # 的 _event_positions 边界同源），消除与音符列的系统性左右偏差。
-    anchor_left = inner_left
-    anchor_right = inner_right
-    anchor_ratio_start = 0.0
-    anchor_ratio_end = 1.0
-    visual = _visual_events(measure)
-    if visual and measure.duration > 0:
-        ordered = [
-            event
-            for _source_index, event in sorted(
-                enumerate(visual),
-                key=lambda item: (
-                    item[1].start if item[1].start is not None else Fraction(item[0]),
-                    item[0],
-                ),
-            )
-        ]
-        first, last = ordered[0], ordered[-1]
-        pad_left, pad_right = _rhythm_edge_padding(ordered, style)
-        edge_extents = _measure_event_visual_extents(ordered, measure, style)
-        first_left = edge_extents[0][0]
-        last_right = edge_extents[-1][1]
-        candidate_left = inner_left + pad_left - first_left
-        candidate_right = inner_right - pad_right - last_right
-        if candidate_right > candidate_left:
-            anchor_left = candidate_left
-            anchor_right = candidate_right
-            # 锚定到首/末音符自身的 start 比例：末音符中心钉在小节右端，
-            # 但它的 start 比例小于 1（如 4 个四分音符的末音符为 3/4）。
-            if first.start is not None:
-                anchor_ratio_start = max(0.0, float(first.start / measure.duration))
-            if last.start is not None:
-                anchor_ratio_end = min(1.0, float(last.start / measure.duration))
+    time_positions = (
+        shared_positions
+        if shared_positions is not None
+        else (
+            {}
+            if event_spans
+            else _spacing_profile([measure], style).positions(inner_left, inner_right)
+        )
+    )
     layouts: list[TextLayout] = []
     previous_bottom = event_bottom
     verse_baselines: dict[int, float] = {}
@@ -4892,22 +4038,10 @@ def _measure_text_layout(
             block.text, font_size, 500
         )
         advance = font_registry().measure(block.text, font_size, 500)
-        if block.start is not None and event_spans:
-            # 歌词词元附着在覆盖其 start 的事件上（与 _apply_lyrics 一致），
-            # 查跨度表即精确对齐；落入间隙的注解块走相邻事件线性插值。
+        if block.start is not None and block.start in time_positions:
+            center_x = time_positions[block.start]
+        elif block.start is not None and event_spans:
             center_x = _lookup_event_x(event_spans, block.start)
-        elif block.start is not None and measure.duration > 0:
-            ratio = max(0.0, min(1.0, float(block.start / measure.duration)))
-            if anchor_ratio_end > anchor_ratio_start:
-                scaled = (ratio - anchor_ratio_start) / (
-                    anchor_ratio_end - anchor_ratio_start
-                )
-                scaled = max(0.0, min(1.0, scaled))
-                center_x = anchor_left + (anchor_right - anchor_left) * scaled
-            else:
-                # 单事件小节首尾同为 anchor_ratio_start：退化为锚点区间内的
-                # 原始比例映射，保证块仍随 start 递增向右排开。
-                center_x = anchor_left + (anchor_right - anchor_left) * ratio
         else:
             center_x = x + width / 2
         if block.role == "lyric":
@@ -5010,9 +4144,16 @@ def _draw_measure_text(
     style: PublicationStyle,
     *,
     event_spans: list[tuple[Fraction, Fraction, float]] | None = None,
+    shared_positions: dict[Fraction, float] | None = None,
 ) -> None:
     for layout in _measure_text_layout(
-        measure, x, width, y, style, event_spans=event_spans
+        measure,
+        x,
+        width,
+        y,
+        style,
+        event_spans=event_spans,
+        shared_positions=shared_positions,
     ):
         ink_left, ink_top, _right, _bottom = font_registry().ink_bounds(
             layout.text,
@@ -5206,6 +4347,7 @@ def _split_long_note(event: Event) -> list[Event]:
                     staff=event.staff,
                     source_token="-",
                     chorded_extension=event.is_chord,
+                    pitches=list(event.pitches) if event.is_chord else [],
                 )
             )
         if cursor is not None:

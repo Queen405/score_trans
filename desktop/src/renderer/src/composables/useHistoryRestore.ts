@@ -136,7 +136,7 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
     })
     const requestPages = buildBatchRenderRequests(sourcePages, {
       jianpuText: batch.jianpu_text || '',
-      title: t('runtime.history.scoreTitle'),
+      fallbackTitle: t('runtime.history.scoreTitle'),
     })
     if (!requestPages.length) {
       log.addLog(t('runtime.history.missingMusicxmlOrText'), 'warn')
@@ -145,14 +145,13 @@ export function useHistoryRestore(flushPendingEdits: () => Promise<void>) {
     try {
       const rendered = await requireData(publicationRender.batchA4({
         pages: requestPages,
-        source_pages: buildBatchRenderRequests(sourcePages, { title: t('runtime.history.scoreTitle') }),
+        source_pages: buildBatchRenderRequests(sourcePages, { fallbackTitle: t('runtime.history.scoreTitle') }),
         render_page_ocr_texts: batch.render_page_ocr_texts || [],
         target_key: settings.targetKey,
         accidental_mode: settings.accidentalMode,
         show_measure_numbers: settings.showMeasureNumbers,
         measure_number_mode: settings.measureNumberMode,
         initial_measure_number: 1,
-        title: t('runtime.history.scoreTitle'),
         ...settings.jianpuLayoutRequest,
       }))
       const ids = renderResponsePageIds(rendered.pages, rendered.svg_file_id)
