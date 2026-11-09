@@ -3,6 +3,8 @@ const recognize = {
     title: '智能识别',
     websiteTitle: '访问官网 www.score-trans.com',
     websiteButton: '官网',
+    githubTitle: '访问 GitHub 仓库',
+    githubButton: 'GitHub',
   },
   qq: {
     joinTooltip: '加入官方 QQ 交流群',

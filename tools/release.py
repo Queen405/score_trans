@@ -313,7 +313,8 @@ def generated_release_body(tag: str, summary: str) -> str:
     for item in comparison.get("commits") or []:
         message = (item.get("commit", {}).get("message") or "").splitlines()
         subject = message[0].strip() if message else ""
-        if not subject:
+        # Skip empty and oversized subjects (e.g. analysis text pasted as a commit message).
+        if not subject or len(subject) > 120:
             continue
         match = re.match(r"^([A-Za-z]+)(?:\([^)]*\))?!?:\s*(.+)$", subject)
         if match:

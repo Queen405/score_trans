@@ -56,6 +56,17 @@
           </n-icon>
           <span>{{ t('recognize.header.websiteButton') }}</span>
         </button>
+        <button
+          type="button"
+          class="rv-website"
+          :title="t('recognize.header.githubTitle')"
+          @click="openGithub"
+        >
+          <n-icon size="16">
+            <LogoGithub />
+          </n-icon>
+          <span>{{ t('recognize.header.githubButton') }}</span>
+        </button>
       </div>
     </div>
 
@@ -387,6 +398,7 @@ import {
   TimeOutline,
   BarChartOutline,
   GlobeOutline,
+  LogoGithub,
   ChatbubblesOutline,
   ArrowUndoOutline,
   ArrowRedoOutline,
@@ -433,6 +445,11 @@ const message = useMessage()
 const WEBSITE_URL = 'https://www.score-trans.com'
 function openWebsite(): void {
   void window.api.openExternal(WEBSITE_URL)
+}
+
+const GITHUB_URL = 'https://github.com/Queen405/score_trans'
+function openGithub(): void {
+  void window.api.openExternal(GITHUB_URL)
 }
 
 const qqOpen = ref(false)

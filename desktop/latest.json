@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
-  "url": "https://score-trans-1320022301.cos.ap-beijing.myqcloud.com/download/Score%20Trans%20Setup%201.1.0.exe",
-  "notes": "出版级排版与 A4 矢量导出、识别候选校正与 PDF 预处理、跳房子语法及历史信息追溯"
+  "version": "1.1.1",
+  "url": "https://score-trans-1320022301.cos.ap-beijing.myqcloud.com/download/Score%20Trans%20Setup%201.1.1.exe",
+  "notes": "出版引擎升级至 publication-36：和弦压缩字形轮廓、多声部独立分组大括号与列对齐页填充优化"
 }

@@ -5,6 +5,8 @@ const recognize: typeof zhRecognize = {
     title: 'Smart Recognition',
     websiteTitle: 'Visit official site www.score-trans.com',
     websiteButton: 'Website',
+    githubTitle: 'View GitHub repository',
+    githubButton: 'GitHub',
   },
   qq: {
     joinTooltip: 'Join the official QQ group',
