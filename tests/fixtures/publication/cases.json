@@ -4,7 +4,7 @@
     "path": "melody.jianpu",
     "measures_per_system": 4,
     "sha256": [
-      "e609ea3917c2454360432ad8dc47432d1cc1f3becb7aa7d8a76818761b931203"
+      "1245e2b423cedc5577d49f6f2d8e87176f1521225de9a5b622cb7f8cc599c3b8"
     ]
   },
   {
@@ -12,7 +12,7 @@
     "path": "lyrics-zh.jianpu",
     "measures_per_system": 4,
     "sha256": [
-      "edf4c88d303fc1a797afa17bf119c47fa48a54d9da526350e914eac38ed09ea7"
+      "1e82da532cd182b092755a6c8a50fbeb694bd0f769e6c4482bab3a93f34d2ca3"
     ]
   },
   {
@@ -20,7 +20,7 @@
     "path": "lyrics-mixed.jianpu",
     "measures_per_system": 4,
     "sha256": [
-      "946ac17d64258b6789363da549c232bb106c179637a84ebf26b40ae9e5477741"
+      "fded6e1756c607c06d3d9f8c0a8e4a60d67742e1dc7c4bba79e1214a64930b5d"
     ]
   },
   {
@@ -28,7 +28,7 @@
     "path": "dense-rhythm.jianpu",
     "measures_per_system": 4,
     "sha256": [
-      "66d0c02249de964174307021e4df724992bf0612c0b3e26431a6e1cb6192f555"
+      "2f93b4a562168846f807f7701e201bccf3bbc62e541594de47aad34f987ade4f"
     ]
   },
   {
@@ -36,7 +36,7 @@
     "path": "multi-part.jianpu",
     "measures_per_system": 4,
     "sha256": [
-      "807d252eeb5c695ad872a49f7fa7f3c729608761042e5aabc69392200629d97c"
+      "3eece17b214a829bbcf051ce362e2aaf9ed457d7105d3bb02c76b5ae84db65fb"
     ]
   },
   {
@@ -45,9 +45,28 @@
     "measures_per_system": 4,
     "min_pages": 2,
     "sha256": [
-      "f7620ab7597ab30165911356547ea872fc3bc19c2233dbcacd8c87f2ed4d61d6",
-      "91f78430876cf89ad691776e0f7f8a3b8b886a53d896b1b0670c803dcc57bf8a",
-      "e6ee6b4480a1f096a3f885023c82781dfd0dcdd72ab856f79c95bf345d14f6eb"
+      "cd9ad6299c41a1feec7ffbe1d23cbf2f4a67db6619bd08d07c9c7e4fdd994d13",
+      "0f5af27c5824dcccb99bbcb5aae06b109427bb969c288661d6cfeec6b5405997"
+    ]
+  },
+  {
+    "name": "wedding-three-part",
+    "path": "wedding-three-part.jianpu",
+    "measures_per_system": 5,
+    "min_pages": 2,
+    "max_pages": 11,
+    "sha256": [
+      "740886194cfc1ac77ab47607596e729751e19b0dc155803af36383d57dcb7a06",
+      "e822b28e3591752dbbee076d3e85e136279f0aa0417e3fb3d5cbbb19c0df2f2e",
+      "526fef44cab64fe42b5ad15a39dc5a385854cef71a25b4fb5b0ee8372aa35e22",
+      "a5eb5d57bf49e1b35c2420079dd4ffd8f03c55fd5b5c9b280e6b5c9506ee7f26",
+      "4a0bdf8478e027daa90021dbfd8dd109b1d804592afb713163cafd9477d45822",
+      "5da32f8c0b059f3914b62ee9d0e06a4ccf8707d8dbab93a9a6eb404fbed6971b",
+      "5654b80f8d46a7a28bbe30d074fcb1b6e448f2d61750ca7b5188cd5b691f1de6",
+      "8b419f1b5c702bc7f8ec020f258ef4d2f09fb24a85996d10e50f1ec49089ec1e",
+      "917b710f4cdf9939917a962202cf4c01fb6ea659d781ebf501940374276d4527",
+      "b0d92e84ff71b870815f088d99312a2f6a4ce08e062bcbddea702ff8f54de554",
+      "4652d674b5725b15a18f365be90867d031b4cf1a74de87153743126496c50e29"
     ]
   }
 ]

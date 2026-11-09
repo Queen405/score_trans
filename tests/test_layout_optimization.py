@@ -16,7 +16,8 @@ from score_trans.services.render.engraving.renderer import (
     _boundary_penalties,
     _break_systems,
     _build_cells,
-    _fixed_page_pitch,
+    _fixed_page_pitches,
+    _fixed_pair_pitch,
     _optimal_system_ends,
     _page_system_gap,
     _paginate,
@@ -293,62 +294,67 @@ def test_fixed_base_pitch_covers_every_same_page_pair_and_stays_stable() -> None
     for page in pages:
         for left, right in zip(page, page[1:], strict=False):
             required = left.vertical.below + style.system_gap + right.vertical.above
-            assert base_pitch + 1e-6 >= required
+            assert _fixed_pair_pitch(left, right, style, base_pitch) + 1e-6 >= required
     repaginated = _paginate_fixed(systems, style, base_pitch, show_title=True)
     assert [[id(system) for system in page] for page in repaginated] == [
         [id(system) for system in page] for page in pages
     ]
 
 
-def test_fixed_page_pitch_uses_shared_stretch_but_not_on_last_page() -> None:
-    style = PublicationStyle(page_height=650, measures_per_system=4)
-    systems = [_measured_system(40, 50) for _ in range(3)]
-    base_pitch = 100.0
-
-    stretched = _fixed_page_pitch(
+def test_fixed_sparse_page_stretch_is_bounded_and_last_page_is_natural() -> None:
+    style = PublicationStyle(page_height=2000, measures_per_system=5)
+    systems = [_measured_system(40, 50), _measured_system(40, 50)]
+    stretched = _fixed_page_pitches(
         systems,
         style,
-        base_pitch,
+        100,
         page_index=0,
         page_count=2,
         show_title=True,
     )
-    without_title = _fixed_page_pitch(
+    natural = _fixed_page_pitches(
         systems,
         style,
-        base_pitch,
-        page_index=0,
-        page_count=2,
-        show_title=False,
-    )
-    last = _fixed_page_pitch(
-        systems,
-        style,
-        base_pitch,
+        100,
         page_index=1,
         page_count=2,
         show_title=True,
     )
-
-    used = (
-        style.margin_top + style.first_system_header_height + 40 + 2 * base_pitch + 50
-    )
-    slack = _pagination_bottom(style) - used
-    assert stretched == pytest.approx(base_pitch + slack / 2.5)
-    assert stretched > base_pitch
-    assert without_title > stretched
-    assert last == base_pitch
+    assert stretched == pytest.approx([102 + 2 * style.system_gap])
+    assert natural == [102]
     assert (
-        _fixed_page_pitch(
+        _fixed_page_pitches(
             systems[:1],
             style,
-            base_pitch,
+            100,
             page_index=0,
             page_count=2,
             show_title=True,
         )
-        == base_pitch
+        == []
     )
+
+
+def test_fixed_page_pitches_use_pairwise_envelopes() -> None:
+    style = PublicationStyle(page_height=2000, measures_per_system=5)
+    systems = [
+        _measured_system(40, 50),
+        _measured_system(100, 180),
+        _measured_system(40, 50),
+    ]
+
+    pitches = _fixed_page_pitches(
+        systems,
+        style,
+        100.0,
+        page_index=0,
+        page_count=2,
+        show_title=True,
+    )
+
+    assert len(pitches) == 2
+    assert pitches[0] == pytest.approx(186.0)
+    assert pitches[1] == pytest.approx(256.0)
 
 
 def test_fixed_pagination_honors_forced_page_before() -> None:

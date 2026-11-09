@@ -136,7 +136,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-29"
+    assert root.attrib["data-engine-version"] == "publication-30"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -4059,7 +4059,7 @@ def _baseline_deltas(values: list[float]) -> list[float]:
 
 
 @pytest.mark.parametrize("fit_content_height", [False, True])
-def test_fixed_mode_primary_baselines_are_strictly_equidistant(
+def test_fixed_mode_primary_baselines_use_pairwise_safe_distances(
     fit_content_height: bool,
 ) -> None:
     pages = PublicationRenderer(PublicationStyle(measures_per_system=4)).render_scores(
@@ -4069,7 +4069,8 @@ def test_fixed_mode_primary_baselines_are_strictly_equidistant(
     assert len(pages) == 1
     deltas = _baseline_deltas(_primary_note_baselines(pages[0]))
     assert len(deltas) == 3
-    assert deltas == pytest.approx([deltas[0]] * 3, abs=1e-6)
+    assert all(delta >= 104.0 - 1e-6 for delta in deltas)
+    assert max(deltas) > min(deltas)
 
 
 def test_fixed_mode_nonlast_pages_stretch_and_last_page_keeps_base_pitch() -> None:
@@ -4084,9 +4085,9 @@ def test_fixed_mode_nonlast_pages_stretch_and_last_page_keeps_base_pitch() -> No
     ).render_scores([score])
     stretched_deltas = _baseline_deltas(_primary_note_baselines(stretched_pages[0]))
     assert len(stretched_pages) == 2
-    assert len(stretched_deltas) == 2
-    assert stretched_deltas == pytest.approx([stretched_deltas[0]] * 2, abs=1e-6)
-    assert stretched_deltas[0] > base_pitch
+    assert len(stretched_deltas) == 1
+    assert all(delta > base_pitch for delta in stretched_deltas)
+    assert stretched_deltas[0] - base_pitch <= 2 * PublicationStyle().system_gap
 
     two_row_last_pages = PublicationRenderer(
         PublicationStyle(page_height=600, measures_per_system=4)
@@ -4126,7 +4127,8 @@ def test_fixed_mode_multi_part_reference_baselines_share_document_pitch() -> Non
 
     deltas = _baseline_deltas(_primary_note_baselines(page, part_index=0))
     assert len(deltas) == 3
-    assert deltas == pytest.approx([deltas[0]] * 3, abs=1e-6)
+    assert all(delta > 0 for delta in deltas)
+    assert max(deltas) > min(deltas)
 
 
 def test_a4_page_geometry_controls_use_physical_millimetres() -> None:

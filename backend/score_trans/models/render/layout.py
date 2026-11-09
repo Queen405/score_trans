@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-PUBLICATION_ENGINE_VERSION = "publication-29"
+PUBLICATION_ENGINE_VERSION = "publication-30"
 DEFAULT_CONTENT_SCALE_PERCENT = 88
 DEFAULT_SYSTEM_GAP_PERCENT = 40
 DEFAULT_SHORT_NOTE_GAP_PERCENT = 20
