@@ -50,10 +50,10 @@ def test_real_score_fixed_pagination_packs_visible_ink_and_respects_footer(
     assert all(len(system.cells) <= count for system in systems)
     assert len(pages[-1]) >= 2
     if count == 5:
-        # Previously 18 pages under the exact screenshot settings.
-        assert len(pages) <= 9
-        assert max(len(page) for page in pages) >= 4
-        assert len(pages[-1]) >= 4
+        # Four complete systems per page are the publication target; the last
+        # page may retain natural bottom whitespace after balancing.
+        assert len(pages) <= 11
+        assert all(3 <= len(page) <= 4 for page in pages)
     for page_index, page in enumerate(pages):
         header = (
             style.first_system_header_height

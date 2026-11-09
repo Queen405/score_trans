@@ -114,6 +114,8 @@ def _node_to_svg(node: SceneNode, indent: int, metadata_scale: float) -> str:
     x = float(node.attrs.get("x", 0))
     y = float(node.attrs.get("y", 0))
     size = float(node.attrs.get("font-size", 16))
+    scale_x = float(node.attrs.get("data-scale-x", 1.0))
+    scale_y = float(node.attrs.get("data-scale-y", 1.0))
     anchor = str(node.attrs.get("text-anchor", "start"))
     weight = publication_text_weight(str(node.attrs.get("class", "")))
     glyphs, advance = font_registry().paths(node.text, weight)
@@ -129,7 +131,7 @@ def _node_to_svg(node: SceneNode, indent: int, metadata_scale: float) -> str:
     group_attrs["data-font-size"] = size * metadata_scale
     group_attrs["data-font-weight"] = weight
     group_attrs["transform"] = (
-        f"translate({x:g} {y:g}) scale({size:g} {-size:g}) translate({offset:g} 0)"
+        f"translate({x:g} {y:g}) scale({size * scale_x:g} {-size * scale_y:g}) translate({offset:g} 0)"
     )
     group_attrs = _inline_class_styles(
         _scaled_metadata_attrs(group_attrs, metadata_scale)

@@ -57,6 +57,25 @@ class PitchLayout:
     note_box: InkBox
     accidental_box: InkBox | None
     octave_boxes: tuple[InkBox, ...]
+    chorded: bool = False
+
+
+def _chord_box(box: InkBox, style: PublicationStyle) -> InkBox:
+    """Apply the publication chord profile to a regular relative ink box."""
+    return InkBox(
+        box.left * style.chord_scale_x,
+        box.top * style.chord_scale_y,
+        box.right * style.chord_scale_x,
+        box.bottom * style.chord_scale_y,
+    )
+
+
+def _chorded(event: Event) -> bool:
+    return len(event.pitches) > 1
+
+
+def _chord_rhythm_scale(event: Event, style: PublicationStyle) -> float:
+    return style.chord_rhythm_scale if _chorded(event) else 1.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,21 +157,20 @@ def pitch_layouts(event: Event, style: PublicationStyle) -> tuple[PitchLayout, .
     # Align the lowest chord tone with the event baseline; stack higher tones
     # above it. Centering the whole chord moved its bottom tone below other
     # notes at the same rhythmic position.
-    offsets = [
-        -(len(pitches) - index - 1) * style.chord_gap for index in range(len(pitches))
-    ]
+    chorded = len(pitches) > 1
+    layer_gap = style.chord_layer_gap if chorded else style.chord_gap
+    dot_scale = style.chord_octave_dot_scale if chorded else 1.0
+    offsets = [-(len(pitches) - index - 1) * layer_gap for index in range(len(pitches))]
 
     def build(row_offsets: list[float]) -> list[PitchLayout]:
-        note_boxes = [
-            _translated(
-                _centered_text_box(
-                    str(max(0, min(7, pitch.degree))), style.note_size, 500
-                ),
-                0.0,
-                row_y,
+        note_boxes = []
+        for pitch, row_y in zip(pitches, row_offsets, strict=True):
+            box = _centered_text_box(
+                str(max(0, min(7, pitch.degree))), style.note_size, 500
             )
-            for pitch, row_y in zip(pitches, row_offsets, strict=True)
-        ]
+            if chorded:
+                box = _chord_box(box, style)
+            note_boxes.append(_translated(box, 0.0, row_y))
         note_bottom = max(box.bottom for box in note_boxes)
         layouts: list[PitchLayout] = []
         for pitch, row_y, note_box in zip(
@@ -163,10 +181,14 @@ def pitch_layouts(event: Event, style: PublicationStyle) -> tuple[PitchLayout, .
             accidental = _accidental_text(pitch)
             if accidental:
                 accidental_rel = _centered_text_box(accidental, style.accidental_size)
-                note_advance = font_registry().measure(value, style.note_size, 500)
+                if chorded:
+                    accidental_rel = _chord_box(accidental_rel, style)
+                note_advance = font_registry().measure(value, style.note_size, 500) * (
+                    style.chord_scale_x if chorded else 1.0
+                )
                 accidental_advance = font_registry().measure(
                     accidental, style.accidental_size
-                )
+                ) * (style.chord_scale_x if chorded else 1.0)
                 accidental_x = min(
                     note_box.left - style.accidental_clearance - accidental_rel.right,
                     -note_advance / 2
@@ -180,20 +202,27 @@ def pitch_layouts(event: Event, style: PublicationStyle) -> tuple[PitchLayout, .
                 direction = -1 if pitch.octave > 0 else 1
                 if direction < 0:
                     first_center = (
-                        note_box.top - style.event_clearance - style.octave_dot_radius
+                        note_box.top
+                        - style.event_clearance
+                        - style.octave_dot_radius * dot_scale
                     )
                 else:
                     first_center = _low_octave_first_center(
                         event, row_y, note_box.bottom, note_bottom, style
                     )
                 for dot_index in range(abs(pitch.octave)):
-                    cy = first_center + direction * dot_index * style.rhythm_dot_step
-                    radius = style.octave_dot_radius
+                    cy = (
+                        first_center
+                        + direction * dot_index * style.rhythm_dot_step * dot_scale
+                    )
+                    radius = style.octave_dot_radius * dot_scale
                     octave_boxes.append(
                         InkBox(-radius, cy - radius, radius, cy + radius)
                     )
             layouts.append(
-                PitchLayout(pitch, row_y, note_box, accidental_box, tuple(octave_boxes))
+                PitchLayout(
+                    pitch, row_y, note_box, accidental_box, tuple(octave_boxes), chorded
+                )
             )
         low_octave_rows = sorted(
             enumerate(layouts),
@@ -207,7 +236,10 @@ def pitch_layouts(event: Event, style: PublicationStyle) -> tuple[PitchLayout, .
             if not boxes:
                 continue
             first_center = (boxes[0].top + boxes[0].bottom) / 2
-            shift = max(0.0, previous_bottom + style.rhythm_dot_step - first_center)
+            shift = max(
+                0.0,
+                previous_bottom + style.rhythm_dot_step * dot_scale - first_center,
+            )
             if shift:
                 boxes = [
                     InkBox(box.left, box.top + shift, box.right, box.bottom + shift)
@@ -220,6 +252,7 @@ def pitch_layouts(event: Event, style: PublicationStyle) -> tuple[PitchLayout, .
                 layout.note_box,
                 layout.accidental_box,
                 tuple(boxes),
+                layout.chorded,
             )
         return layouts
 
@@ -274,6 +307,7 @@ def pitch_layouts(event: Event, style: PublicationStyle) -> tuple[PitchLayout, .
                     tuple(
                         _translated(box, 0.0, -required) for box in shifted.octave_boxes
                     ),
+                    shifted.chorded,
                 )
     return tuple(layouts)
 
@@ -333,10 +367,13 @@ def mark_layouts(event: Event, style: PublicationStyle) -> tuple[MarkLayout, ...
         for dot_box in row.octave_boxes:
             attachment_top = min(attachment_top, dot_box.top)
 
+    rhythm_scale = _chord_rhythm_scale(event, style)
     if event.dotted:
         horizontal_right = max(
             horizontal_right,
-            17.0 + (event.dotted - 1) * style.rhythm_dot_step + style.rhythm_dot_radius,
+            17.0 * rhythm_scale
+            + (event.dotted - 1) * style.rhythm_dot_step * rhythm_scale
+            + style.rhythm_dot_radius * rhythm_scale,
         )
     if event.duration > 1:
         extensions = max(0, math.ceil(float(event.duration)) - 1)
@@ -344,7 +381,8 @@ def mark_layouts(event: Event, style: PublicationStyle) -> tuple[MarkLayout, ...
             extension_start = _duration_extension_start(event, style)
             horizontal_right = max(
                 horizontal_right,
-                extension_start + (extensions - 1) * style.extension_line_step + 11.0,
+                extension_start
+                + ((extensions - 1) * style.extension_line_step + 11.0) * rhythm_scale,
             )
 
     mark_ids = list(
@@ -449,9 +487,11 @@ def _rhythm_bottom_from_note_bottom(
         return note_bottom
     return (
         note_bottom
-        + 12.5
-        + (rhythm_lines - 1) * style.rhythm_line_level_step
-        + style.stroke_width
+        + 12.5 * _chord_rhythm_scale(event, style)
+        + (rhythm_lines - 1)
+        * style.rhythm_line_level_step
+        * _chord_rhythm_scale(event, style)
+        + style.stroke_width * _chord_rhythm_scale(event, style)
     )
 
 
@@ -463,24 +503,27 @@ def _low_octave_first_center(
     style: PublicationStyle,
 ) -> float:
     """Place low-octave dots below their note or the shared rhythm lines."""
+    dot_scale = style.chord_octave_dot_scale if _chorded(event) else 1.0
+    dot_radius = style.octave_dot_radius * dot_scale
     base = (
         _rhythm_bottom_from_note_bottom(event, note_bottom, style)
         if _rhythm_line_count(event)
         else row_note_bottom
     )
     if not _rhythm_line_count(event):
-        return base + style.event_clearance + style.octave_dot_radius
-    return base - row_y + style.event_clearance + style.octave_dot_radius
+        return base + style.event_clearance + dot_radius
+    return base - row_y + style.event_clearance + dot_radius
 
 
 def _duration_extension_start(event: Event, style: PublicationStyle) -> float:
+    scale = style.chord_rhythm_scale if _chorded(event) else 1.0
     if not event.dotted:
-        return 17.0
+        return 17.0 * scale
     return (
-        17.0
-        + max(0, event.dotted - 1) * style.rhythm_dot_step
-        + style.rhythm_dot_radius
-        + style.duration_dot_clearance
+        17.0 * scale
+        + max(0, event.dotted - 1) * style.rhythm_dot_step * scale
+        + style.rhythm_dot_radius * scale
+        + style.duration_dot_clearance * scale
     )
 
 
@@ -538,7 +581,8 @@ def measure_event_layout(
     """Measure every visible event component with one conservative geometry pass."""
 
     if event.kind == "extension":
-        box = InkBox(-5.5, -7.0, 5.5, -5.0)
+        scale = style.chord_rhythm_scale if event.chorded_extension else 1.0
+        box = InkBox(-5.5 * scale, -7.0 * scale, 5.5 * scale, -5.0 * scale)
         return EventLayout(box, (VisualPart("extension-line", box),))
 
     parts: list[VisualPart] = []
@@ -565,29 +609,32 @@ def measure_event_layout(
         extensions = max(0, math.ceil(float(event.duration)) - 1)
         if extensions:
             left = _duration_extension_start(event, style)
-            right = left + (extensions - 1) * style.extension_line_step + 11
-            box = box.union(InkBox(left, -7, right, -5))
-            parts.append(VisualPart("extension-line", InkBox(left, -7, right, -5)))
+            scale = _chord_rhythm_scale(event, style)
+            right = left + ((extensions - 1) * style.extension_line_step + 11) * scale
+            dash = InkBox(left, -7 * scale, right, -5 * scale)
+            box = box.union(dash)
+            parts.append(VisualPart("extension-line", dash))
     if event.dotted:
-        right = (
-            17 + (event.dotted - 1) * style.rhythm_dot_step + style.rhythm_dot_radius
-        )
+        scale = _chord_rhythm_scale(event, style)
+        radius = style.rhythm_dot_radius * scale
+        step = style.rhythm_dot_step * scale
+        right = 17 * scale + (event.dotted - 1) * step + radius
         box = box.union(
             InkBox(
-                17 - style.rhythm_dot_radius,
-                -7 - style.rhythm_dot_radius,
+                17 * scale - radius,
+                -7 * scale - radius,
                 right,
-                -7 + style.rhythm_dot_radius,
+                -7 * scale + radius,
             )
         )
         parts.append(
             VisualPart(
                 "rhythm-dot",
                 InkBox(
-                    17 - style.rhythm_dot_radius,
-                    -7 - style.rhythm_dot_radius,
+                    17 * scale - radius,
+                    -7 * scale - radius,
                     right,
-                    -7 + style.rhythm_dot_radius,
+                    -7 * scale + radius,
                 ),
             )
         )

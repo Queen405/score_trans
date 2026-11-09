@@ -95,10 +95,28 @@ def _scale(node: ET.Element) -> float:
 
 def _text_box(node: ET.Element) -> tuple[float, float, float, float]:
     x, y = _translate(node)
+    match = re.search(r"scale\(([-\d.]+) ([-\d.]+)", node.attrib["transform"])
+    assert match is not None
+    horizontal_size = abs(float(match.group(1)))
+    vertical_size = abs(float(match.group(2)))
+    horizontal_scale = horizontal_size / vertical_size
     left, top, right, bottom = font_registry().ink_bounds(
-        node.attrib["aria-label"], _scale(node)
+        node.attrib["aria-label"], vertical_size
     )
-    return x + left, y + top, x + right, y + bottom
+    center = x
+    return (
+        center
+        + (left - font_registry().measure(node.attrib["aria-label"], vertical_size) / 2)
+        * horizontal_scale,
+        y + top,
+        center
+        + (
+            right
+            - font_registry().measure(node.attrib["aria-label"], vertical_size) / 2
+        )
+        * horizontal_scale,
+        y + bottom,
+    )
 
 
 def _text_bbox(node: ET.Element) -> tuple[float, float, float, float]:
@@ -136,7 +154,7 @@ def test_publication_renderer_is_the_only_engine() -> None:
 
     root = _root(svg)
     assert root.attrib["data-render-engine"] == "publication"
-    assert root.attrib["data-engine-version"] == "publication-30"
+    assert root.attrib["data-engine-version"] == "publication-33"
     assert "春江" in svg
     assert "<path" in svg
 
@@ -421,6 +439,78 @@ def test_chord_lowest_tone_aligns_with_single_note_baseline() -> None:
 
     assert lowest_pitch_baseline(chord_group) == pytest.approx(
         lowest_pitch_baseline(single_group)
+    )
+
+
+def test_chord_glyph_profile_is_anisotropically_scaled_and_bbox_matches() -> None:
+    root = _root(render_jianpu_svg("1=C\n4/4\n[5+3+1] 1 |"))
+    chord_group = next(
+        node for node in root.iter() if node.attrib.get("data-note-token") == "[5+3+1]"
+    )
+    chord_notes = [
+        node for node in chord_group.iter() if node.attrib.get("class") == "note"
+    ]
+    assert len(chord_notes) == 3
+    for note in chord_notes:
+        assert float(note.attrib["data-scale-x"]) == pytest.approx(0.90)
+        assert float(note.attrib["data-scale-y"]) == pytest.approx(0.68)
+        bbox = _bbox(note)
+        assert bbox[2] > 0 and bbox[3] > 0
+
+    chord_bottom = max(_bbox(note)[1] + _bbox(note)[3] for note in chord_notes)
+    single_group = next(
+        node for node in root.iter() if node.attrib.get("data-note-token") == "1"
+    )
+    single_note = next(
+        node for node in single_group.iter() if node.attrib.get("class") == "note"
+    )
+    single_box = _bbox(single_note)
+    assert chord_bottom == pytest.approx(single_box[1] + single_box[3], abs=0.02)
+    assert max(_bbox(note)[3] for note in chord_notes) < single_box[3]
+
+
+def test_chord_octave_and_rhythm_attachments_follow_compressed_profile() -> None:
+    event = Event(
+        kind="note",
+        duration=Fraction(3, 2),
+        dotted=1,
+        pitches=[JianpuPitch(5, octave=1), JianpuPitch(3), JianpuPitch(1, octave=-1)],
+    )
+    root = _root(render_score_svg(JianpuScore(measures=[Measure("1", events=[event])])))
+
+    octave_dots = [
+        node for node in root.iter() if node.attrib.get("class") == "octave-dot"
+    ]
+    rhythm_dots = [
+        node for node in root.iter() if node.attrib.get("class") == "rhythm-dot"
+    ]
+    assert len(octave_dots) == 2
+    assert all(
+        float(node.attrib["r"]) == pytest.approx(2.25 * 0.72) for node in octave_dots
+    )
+    assert len(rhythm_dots) == 1
+    assert float(rhythm_dots[0].attrib["r"]) == pytest.approx(2.1 * 0.82)
+    long_chord = Event(
+        kind="note",
+        duration=Fraction(3),
+        pitches=[JianpuPitch(5), JianpuPitch(3), JianpuPitch(1)],
+    )
+    extended_root = _root(
+        render_score_svg(JianpuScore(measures=[Measure("1", events=[long_chord])]))
+    )
+    extension_lines = [
+        node
+        for node in extended_root.iter()
+        if node.attrib.get("class") == "extension-line"
+    ]
+    assert len(extension_lines) == 2
+    assert all(
+        float(node.attrib["stroke-width"]) == pytest.approx(1.7 * 0.82)
+        for node in extension_lines
+    )
+    assert all(
+        float(node.attrib["x2"]) - float(node.attrib["x1"]) == pytest.approx(11 * 0.82)
+        for node in extension_lines
     )
 
 

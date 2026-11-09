@@ -525,6 +525,7 @@ def _a4_renderer(
         rhythm_dot_radius=base.rhythm_dot_radius * layout.note_size_scale,
         staccato_radius=base.staccato_radius * layout.note_size_scale,
         chord_gap=base.chord_gap * layout.note_size_scale,
+        chord_layer_gap=base.chord_layer_gap * layout.note_size_scale,
         lyric_size=base.lyric_size * layout.lyric_size_scale,
         title_size=base.title_size * layout.title_size_scale,
         title_block_height=base.title_block_height

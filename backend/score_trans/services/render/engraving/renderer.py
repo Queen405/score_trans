@@ -2765,7 +2765,14 @@ def _paginate_fixed(
     *,
     show_title: bool = True,
 ) -> list[list[_System]]:
-    """Pack local envelopes, using bounded elastic whitespace before a break."""
+    """Pack local envelopes, using bounded elastic whitespace before a break.
+
+    Multi-part fixed-grid systems are intentionally capped at four systems per
+    page.  A fifth system can technically fit on A4 after vertical compression,
+    but it makes the three-part publication look crowded and leaves too little
+    separation between complete systems.  Single-part scores retain the
+    height-driven packing behavior used by the general publication corpus.
+    """
     for system in systems:
         _apply_spacing_compression(system, 0.0)
     pages: list[list[_System]] = []
@@ -2776,12 +2783,17 @@ def _paginate_fixed(
         else style.continuation_system_header_height
     )
     content_bottom = _pagination_bottom(style)
+    system_cap = 4 if any(len(system.parts) > 1 for system in systems) else None
     for system in systems:
         header = first_header if not pages else style.continuation_system_header_height
         available = content_bottom - style.margin_top - header
         candidate = [*current, system]
         minimum_height = _fixed_systems_height(candidate, style, pitch, compression=1.0)
-        if current and (minimum_height > available + 1e-6 or system.force_page_before):
+        if current and (
+            minimum_height > available + 1e-6
+            or system.force_page_before
+            or (system_cap is not None and len(current) >= system_cap)
+        ):
             pages.append(current)
             current = []
             available = (
@@ -2812,6 +2824,24 @@ def _paginate_fixed(
                 <= available
             ):
                 pages[-2].pop()
+                pages[-1] = candidate
+    if system_cap is not None and len(pages) > 1 and len(pages[-1]) < 3:
+        previous, last = pages[-2], pages[-1]
+        move_count = min(3 - len(last), max(0, len(previous) - 3))
+        if move_count:
+            moved = previous[-move_count:]
+            candidate = [*moved, *last]
+            available = (
+                content_bottom
+                - style.margin_top
+                - style.continuation_system_header_height
+            )
+            if (
+                not moved[0].force_page_before
+                and _fixed_systems_height(candidate, style, pitch, compression=1.0)
+                <= available
+            ):
+                del previous[-move_count:]
                 pages[-1] = candidate
     for page_index, page in enumerate(pages):
         header = (
@@ -3665,6 +3695,7 @@ def _draw_event(
         return _draw_extension_event(
             scene,
             event,
+            style,
             x,
             y,
             right_limit=right_limit,
@@ -3762,6 +3793,7 @@ def _draw_event(
 def _draw_extension_event(
     scene: PublicationScene,
     event: Event,
+    style: PublicationStyle,
     x: float,
     y: float,
     *,
@@ -3770,12 +3802,13 @@ def _draw_extension_event(
 ) -> tuple[_Anchor, bool]:
     """Draw one beat-slot extension dash centered on its beat anchor."""
 
-    left = x - 5.5
-    right = x + 5.5
+    scale = style.chord_rhythm_scale if event.chorded_extension else 1.0
+    left = x - 5.5 * scale
+    right = x + 5.5 * scale
     if right_limit is not None:
         right = min(right, right_limit)
-    top = y - 7.0
-    bottom = y - 5.0
+    top = y - 7.0 * scale
+    bottom = y - 5.0 * scale
     bbox = BBox(left, top, max(0.0, right - left), bottom - top)
     attrs: dict[str, str | float | int] = {
         "class": "source-anchor",
@@ -3787,7 +3820,11 @@ def _draw_extension_event(
         attrs["data-content-end"] = content_bounds[1]
     group = SceneNode("g", attrs)
     if right > left:
-        group.children.append(_line("extension-line", left, y - 6, right, y - 6, 1.7))
+        group.children.append(
+            _line(
+                "extension-line", left, y - 6 * scale, right, y - 6 * scale, 1.7 * scale
+            )
+        )
     scene.add(group)
     return _Anchor(x, y, bbox, event), False
 
@@ -3815,23 +3852,33 @@ def _draw_pitch(
         )
     )
     accidental = _accidental_text(pitch)
+    chorded = len(event.pitches) > 1
+    glyph_scale_x = style.chord_scale_x if chorded else 1.0
+    glyph_scale_y = style.chord_scale_y if chorded else 1.0
     if accidental:
         registry = font_registry()
         note_value = str(max(0, min(7, pitch.degree)))
         note_left, note_top, _note_right, _note_bottom = registry.ink_bounds(
             note_value, style.note_size, 500
         )
-        note_left -= registry.measure(note_value, style.note_size, 500) / 2
+        note_left = (
+            note_left - registry.measure(note_value, style.note_size, 500) / 2
+        ) * glyph_scale_x
+        note_top *= glyph_scale_y
         _acc_left, _acc_top, accidental_right, accidental_bottom = registry.ink_bounds(
             accidental, style.accidental_size
         )
         note_advance = registry.measure(note_value, style.note_size, 500)
         accidental_advance = registry.measure(accidental, style.accidental_size)
-        accidental_right -= accidental_advance / 2
+        accidental_right = (accidental_right - accidental_advance / 2) * glyph_scale_x
+        accidental_bottom *= glyph_scale_y
         accidental_bottom_target = y + note_top + 3.0
         accidental_x = min(
             x + note_left - style.accidental_clearance - accidental_right,
-            x - note_advance / 2 - style.accidental_clearance - accidental_advance / 2,
+            x
+            - note_advance * glyph_scale_x / 2
+            - style.accidental_clearance
+            - accidental_advance * glyph_scale_x / 2,
         )
         accidental_y = accidental_bottom_target - accidental_bottom
         group.children.append(
@@ -3842,6 +3889,8 @@ def _draw_pitch(
                 accidental,
                 style.accidental_size,
                 anchor="middle",
+                scale_x=glyph_scale_x,
+                scale_y=glyph_scale_y,
                 attrs=_semantic_attrs("accidental", exact_accidental_ids),
             )
         )
@@ -3853,6 +3902,8 @@ def _draw_pitch(
             str(max(0, min(7, pitch.degree))),
             style.note_size,
             anchor="middle",
+            scale_x=glyph_scale_x,
+            scale_y=glyph_scale_y,
             attrs=_semantic_attrs("note", note_ids),
         )
     )
@@ -3864,7 +3915,7 @@ def _draw_pitch(
                     "octave-dot",
                     x,
                     y + (box.top + box.bottom) / 2 - row.y,
-                    style.octave_dot_radius,
+                    (box.right - box.left) / 2,
                     fill=True,
                 )
             )
@@ -3880,27 +3931,40 @@ def _draw_duration(
     right_limit: float | None = None,
 ) -> None:
     duration = event.duration
+    chorded = len(event.pitches) > 1
+    scale_x = style.chord_rhythm_scale if chorded else 1.0
+    scale_y = style.chord_rhythm_scale if chorded else 1.0
     if duration > 1:
         extensions = max(0, math.ceil(float(duration)) - 1)
         extension_start = _duration_extension_start(event, style)
         for index in range(extensions):
-            ex1 = x + extension_start + index * style.extension_line_step
-            ex2 = ex1 + 11
+            ex1 = x + extension_start + index * style.extension_line_step * scale_x
+            ex2 = ex1 + 11 * scale_x
             if right_limit is not None:
                 ex2 = min(ex2, right_limit)
             if ex2 <= ex1:
                 continue
-            group.children.append(_line("extension-line", ex1, y - 6, ex2, y - 6, 1.7))
+            group.children.append(
+                _line(
+                    "extension-line",
+                    ex1,
+                    y - 6 * scale_y,
+                    ex2,
+                    y - 6 * scale_y,
+                    1.7 * scale_y,
+                )
+            )
     for index in range(event.dotted):
-        dot_x = x + 17 + index * style.rhythm_dot_step
-        if right_limit is not None and dot_x + style.rhythm_dot_radius > right_limit:
+        dot_x = x + 17 * scale_x + index * style.rhythm_dot_step * scale_x
+        radius = style.rhythm_dot_radius * scale_y
+        if right_limit is not None and dot_x + radius > right_limit:
             continue
         group.children.append(
             _circle(
                 "rhythm-dot",
                 dot_x,
-                y - 7,
-                style.rhythm_dot_radius,
+                y - 7 * scale_y,
+                radius,
                 fill=True,
             )
         )
@@ -4271,7 +4335,8 @@ def _rhythm_line_base(anchor: _Anchor, style: PublicationStyle | None = None) ->
 def _rhythm_line_offset(event: Event, style: PublicationStyle) -> float:
     rows = pitch_layouts(event, style)
     note_bottom = max((row.note_box.bottom for row in rows), default=0.0)
-    return note_bottom + 12.5
+    rhythm_scale = style.chord_rhythm_scale if len(event.pitches) > 1 else 1.0
+    return note_bottom + 12.5 * rhythm_scale
 
 
 def _is_tuplet(event: Event) -> bool:
@@ -5140,6 +5205,7 @@ def _split_long_note(event: Event) -> list[Event]:
                     voice=event.voice,
                     staff=event.staff,
                     source_token="-",
+                    chorded_extension=event.is_chord,
                 )
             )
         if cursor is not None:
@@ -5225,6 +5291,8 @@ def _text(
     size: float,
     *,
     anchor: Literal["start", "middle", "end"] = "start",
+    scale_x: float = 1.0,
+    scale_y: float = 1.0,
     attrs: dict[str, str | float | int] | None = None,
 ) -> SceneNode:
     node_attrs: dict[str, str | float | int] = {
@@ -5240,17 +5308,25 @@ def _text(
     )
     advance = font_registry().measure(value, size, weight)
     offset = (
-        -advance / 2 if anchor == "middle" else -advance if anchor == "end" else 0.0
+        -advance * scale_x / 2
+        if anchor == "middle"
+        else -advance * scale_x
+        if anchor == "end"
+        else 0.0
     )
     node_attrs.setdefault(
         "data-bbox",
         BBox(
-            x + offset + ink_left,
-            y + ink_top,
-            ink_right - ink_left,
-            ink_bottom - ink_top,
+            x + offset + ink_left * scale_x,
+            y + ink_top * scale_y,
+            (ink_right - ink_left) * scale_x,
+            (ink_bottom - ink_top) * scale_y,
         ).as_data(),
     )
+    if scale_x != 1.0:
+        node_attrs["data-scale-x"] = scale_x
+    if scale_y != 1.0:
+        node_attrs["data-scale-y"] = scale_y
     node_attrs.update(attrs or {})
     return SceneNode(
         "text",

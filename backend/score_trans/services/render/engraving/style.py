@@ -59,6 +59,13 @@ class PublicationStyle:
     mark_clearance: float = 6.0
     mark_stack_gap: float = 4.0
     chord_gap: float = 25.0
+    # Independent engraving profile for stacked chord tones. Commercial
+    # Jianpu editors use a compressed variant of the regular digit glyph.
+    chord_scale_x: float = 0.90
+    chord_scale_y: float = 0.68
+    chord_layer_gap: float = 5.0
+    chord_octave_dot_scale: float = 0.72
+    chord_rhythm_scale: float = 0.82
     staccato_radius: float = 2.4
     octave_dot_radius: float = 2.25
     rhythm_dot_radius: float = 2.1
