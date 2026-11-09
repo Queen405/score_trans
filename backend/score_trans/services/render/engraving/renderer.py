@@ -240,6 +240,7 @@ class PublicationRenderer:
             cells,
             style,
             len(parts),
+            part_groups=_part_groups(parts),
             ending_spans_by_part=ending_spans_by_part,
             show_measure_numbers=show_measure_numbers,
         )
@@ -473,17 +474,23 @@ class PublicationRenderer:
     ) -> int:
         x0 = style.margin_left
         part_count = max(1, len(parts))
-        if part_count > 1:
-            system_bottom = y + system.parts[-1].offset + system.parts[-1].bar_bottom
-            scene.add(
-                _line("system-bracket", x0 - 12, y + 14, x0 - 12, system_bottom, 2.2)
+        part_groups = _part_groups(parts)
+        for group_start, group_end in part_groups:
+            if group_end - group_start < 2:
+                continue
+            group_top = y + system.parts[group_start].offset + 4
+            group_bottom = (
+                y
+                + system.parts[group_end - 1].offset
+                + system.parts[group_end - 1].bar_bottom
+                - 4
             )
             scene.add(
                 SceneNode(
                     "path",
                     {
-                        "class": "system-bracket",
-                        "d": f"M {x0 - 12:g} {y + 14:g} q -13 7 0 15 M {x0 - 12:g} {system_bottom:g} q -13 -7 0 -15",
+                        "class": "system-bracket group-brace",
+                        "d": _brace_path(x0 - 12, group_top, group_bottom),
                         "stroke-width": 2.2,
                     },
                 )
@@ -501,20 +508,6 @@ class PublicationRenderer:
         for cell_index, (cell, width) in enumerate(
             zip(system.cells, system.widths, strict=True)
         ):
-            present = [measure for measure in cell.measures if measure is not None]
-            share_barlines = part_count > 1 and all(
-                not measure.repeat_start and not measure.repeat_end
-                for measure in present
-            )
-            if share_barlines:
-                _draw_barline(
-                    scene,
-                    x,
-                    y + system.parts[0].bar_top,
-                    y + system.parts[-1].bar_bottom,
-                    style,
-                    kind="normal",
-                )
             shared_positions = _shared_cell_positions(
                 cell.measures, x, width, style, common_shortest=common_shortest
             )
@@ -526,12 +519,36 @@ class PublicationRenderer:
                     else None
                 )
                 staff_y = y + system.parts[part_index].offset
-                if show_part_names and cell_index == 0 and part_count > 1:
-                    part_name = _part_name(parts, part_index)
+                name_group = next(
+                    (
+                        group
+                        for group in part_groups
+                        if group[0] <= part_index < group[1]
+                    ),
+                    (part_index, part_index + 1),
+                )
+                if (
+                    show_part_names
+                    and cell_index == 0
+                    and part_count > 1
+                    and part_index == name_group[0]
+                ):
                     part_name = re.sub(
-                        r"\(staff\s*(\d+)\)", r" \1", part_name, flags=re.I
+                        r"\s*\(\s*staff\s*\d+\s*\)\s*$",
+                        "",
+                        _part_name(parts, part_index),
+                        flags=re.I,
+                    ).strip()
+                    name_y = (
+                        y
+                        + (
+                            system.parts[name_group[0]].offset
+                            + system.parts[name_group[1] - 1].offset
+                        )
+                        / 2
+                        + 30
                     )
-                    available = max(20.0, x - 20.0)
+                    available = max(20.0, x - 4.0)
                     while (
                         part_name
                         and font_registry().measure(
@@ -546,7 +563,7 @@ class PublicationRenderer:
                             _text(
                                 "part-name",
                                 x - 18,
-                                staff_y + 30,
+                                name_y,
                                 part_name,
                                 style.part_name_size,
                                 anchor="end",
@@ -582,7 +599,7 @@ class PublicationRenderer:
                     note_index,
                     spanners[part_index],
                     draw_number=draw_number,
-                    draw_start_bar=cell_index == 0,
+                    draw_start_bar=False,
                     draw_attribute=_measure_attributes_changed(
                         parts, part_index, cell.index
                     ),
@@ -602,18 +619,6 @@ class PublicationRenderer:
                     part_index=part_index,
                     part_layout=system.parts[part_index],
                     common_shortest=common_shortest,
-                    share_barlines=share_barlines,
-                )
-            if share_barlines:
-                _draw_barline(
-                    scene,
-                    x + width,
-                    y + system.parts[0].bar_top,
-                    y + system.parts[-1].bar_bottom,
-                    style,
-                    kind=(
-                        "terminal" if cell_index == len(system.cells) - 1 else "normal"
-                    ),
                 )
             x += width
         for part_index, open_state in enumerate(spanners):
@@ -736,7 +741,6 @@ class PublicationRenderer:
         part_index: int = 0,
         part_layout: _PartLayout | None = None,
         common_shortest: Fraction | None = None,
-        share_barlines: bool = False,
     ) -> int:
         visual_events = _visual_events(measure)
         lane_groups = _measure_render_lanes(visual_events)
@@ -748,7 +752,7 @@ class PublicationRenderer:
         bar_top, bar_bottom = _measure_bar_offsets(measure, style)
         if part_layout is not None:
             bar_top, bar_bottom = part_layout.bar_top, part_layout.bar_bottom
-        if (draw_start_bar and not share_barlines) or measure.repeat_start:
+        if draw_start_bar or measure.repeat_start:
             _draw_barline(
                 scene,
                 x,
@@ -992,8 +996,6 @@ class PublicationRenderer:
                     "repeat-dot", x + width - 12, y + repeat_center + 7, 2.3, fill=True
                 )
             )
-        if share_barlines and not measure.repeat_end:
-            return note_index
         _draw_barline(
             scene,
             x + width,
@@ -1952,6 +1954,7 @@ def _break_systems(
     style: PublicationStyle,
     part_count: int,
     *,
+    part_groups: list[tuple[int, int]] | None = None,
     ending_spans_by_part: list[list[EndingSpan]] | None = None,
     show_measure_numbers: bool = True,
 ) -> list[_System]:
@@ -2005,6 +2008,7 @@ def _break_systems(
             widths,
             style,
             part_keys,
+            part_groups=part_groups or [],
             ending_spans_by_part=ending_spans_by_part,
             show_measure_numbers=show_measure_numbers,
         )
@@ -2048,6 +2052,7 @@ def _system_part_layouts(
     style: PublicationStyle,
     part_keys: list[list[LaneKey]],
     *,
+    part_groups: list[tuple[int, int]] | None = None,
     ending_spans_by_part: list[list[EndingSpan]] | None = None,
     show_measure_numbers: bool = True,
 ) -> list[_PartLayout]:
@@ -2259,7 +2264,16 @@ def _system_part_layouts(
                 ending_bracket_offset,
             )
         )
-        cursor += height + style.part_gap
+        if index + 1 < len(part_keys):
+            same_group = any(
+                group_start <= index < group_end - 1
+                for group_start, group_end in (part_groups or [])
+            )
+            cursor += height + (
+                min(style.part_gap, 8.0) if same_group else style.part_gap
+            )
+        else:
+            cursor += height
     return layouts
 
 
@@ -4810,6 +4824,45 @@ def _part_name(parts: list[list[JianpuScore]], index: int) -> str:
     return next(
         (score.part_name for score in parts[index] if score.part_name),
         f"声部 {index + 1}",
+    )
+
+
+def _normalized_part_name(name: str) -> str:
+    """Normalize common multi-staff suffixes before automatic grouping."""
+    normalized = re.sub(r"\s*\(\s*staff\s*\d+\s*\)\s*$", "", name, flags=re.I)
+    return re.sub(r"\s+", " ", normalized).strip().casefold()
+
+
+def _part_groups(parts: list[list[JianpuScore]]) -> list[tuple[int, int]]:
+    """Return contiguous groups of staves belonging to the same instrument."""
+    count = len(parts)
+    if count == 0:
+        return []
+    groups: list[tuple[int, int]] = []
+    start = 0
+    previous = _normalized_part_name(_part_name(parts, 0))
+    for index in range(1, count):
+        current = _normalized_part_name(_part_name(parts, index))
+        if current != previous:
+            groups.append((start, index))
+            start = index
+            previous = current
+    groups.append((start, count))
+    return groups
+
+
+def _brace_path(x: float, top: float, bottom: float) -> str:
+    """Draw a compact left-facing curly brace for one staff group."""
+    height = max(20.0, bottom - top)
+    middle = top + height / 2
+    upper_control = top + height * 0.32
+    lower_control = bottom - height * 0.32
+    return (
+        f"M {x + 8:g} {top:g} "
+        f"C {x:g} {top:g} {x:g} {upper_control:g} {x:g} {middle - 7:g} "
+        f"C {x - 12:g} {middle - 4:g} {x - 12:g} {middle + 4:g} "
+        f"{x:g} {middle + 7:g} "
+        f"C {x:g} {lower_control:g} {x:g} {bottom:g} {x + 8:g} {bottom:g}"
     )
 
 

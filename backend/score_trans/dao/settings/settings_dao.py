@@ -14,6 +14,28 @@ LEGACY_DB_PATH = LEGACY_WORK_DIR / "settings.db"
 
 TABLE_NAME = "settings"
 _OBSOLETE_KEYS = ("confirm_start_measure_number",)
+_COMPACT_LAYOUT_KEYS = (
+    "jianpu_content_scale_percent",
+    "jianpu_system_gap_percent",
+    "jianpu_short_note_gap_percent",
+    "jianpu_beat_gap_percent",
+    "jianpu_break_beams_at_beat",
+    "jianpu_measures_per_system",
+    "jianpu_margin_top_mm",
+    "jianpu_margin_bottom_mm",
+    "jianpu_margin_left_mm",
+    "jianpu_margin_right_mm",
+    "jianpu_header_gap_mm",
+    "jianpu_footer_protection_mm",
+    "jianpu_note_size_percent",
+    "jianpu_lyric_size_percent",
+    "jianpu_title_size_percent",
+    "jianpu_annotation_size_percent",
+    "jianpu_part_gap_percent",
+    "jianpu_voice_gap_percent",
+    "jianpu_lyric_line_gap_percent",
+    "jianpu_lyric_note_gap_percent",
+)
 
 
 class SettingsDao:
@@ -68,6 +90,7 @@ class SettingsDao:
                     (key, value),
                 )
             self._migrate_audiveris_pixel_budget(conn)
+            self._migrate_compact_jianpu_layout(conn)
             self._remove_obsolete_settings(conn)
             conn.commit()
 
@@ -92,6 +115,19 @@ class SettingsDao:
             "WHERE key = 'audiveris_max_pixel_count' AND value = '4500000'"
         )
         conn.execute("PRAGMA user_version = 1")
+
+    def _migrate_compact_jianpu_layout(self, conn: sqlite3.Connection) -> None:
+        version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+        if version >= 2:
+            return
+        for key in _COMPACT_LAYOUT_KEYS:
+            if key not in self.defaults:
+                continue
+            conn.execute(
+                f"UPDATE {TABLE_NAME} SET value = ? WHERE key = ?",
+                (self.defaults[key], key),
+            )
+        conn.execute("PRAGMA user_version = 2")
 
     def _migrate_old_table(self, conn: sqlite3.Connection) -> None:
         try:

@@ -33,7 +33,8 @@ def test_multi_part_numbers_labels_and_barlines_are_systemic() -> None:
     measures = [node for node in root.iter() if node.attrib.get("class") == "measure"]
     assert len(numbers) == 2
     assert len(names) == 2
-    assert len(measures) == 3
+    assert len(measures) == 2
+    assert len({(node.attrib["y1"], node.attrib["y2"]) for node in measures}) == 2
     assert all(node.attrib["x1"] == node.attrib["x2"] for node in measures)
 
 

@@ -144,26 +144,26 @@ export const useSettingsStore = defineStore('settings', () => {
   const measureNumberMode = ref<MeasureNumberMode>('row_start')
   const jianpuSyntaxHighlight = ref(true)
   const jianpuMeasureDurationCheck = ref(true)
-  const jianpuContentScalePercent = ref(80)
-  const jianpuSystemGapPercent = ref(50)
+  const jianpuContentScalePercent = ref(88)
+  const jianpuSystemGapPercent = ref(40)
   const jianpuShortNoteGapPercent = ref(20)
   const jianpuBeatGapPercent = ref(100)
   const jianpuBreakBeamsAtBeat = ref(false)
   const jianpuMeasuresPerSystem = ref<MeasuresPerSystem>(0)
-  const jianpuMarginTopMm = ref(10)
-  const jianpuMarginBottomMm = ref(7)
-  const jianpuMarginLeftMm = ref(12)
-  const jianpuMarginRightMm = ref(12)
-  const jianpuHeaderGapMm = ref(5)
+  const jianpuMarginTopMm = ref(8)
+  const jianpuMarginBottomMm = ref(5)
+  const jianpuMarginLeftMm = ref(10)
+  const jianpuMarginRightMm = ref(10)
+  const jianpuHeaderGapMm = ref(3)
   const jianpuFooterProtectionMm = ref(2)
   const jianpuNoteSizePercent = ref(100)
   const jianpuLyricSizePercent = ref(100)
   const jianpuTitleSizePercent = ref(100)
   const jianpuAnnotationSizePercent = ref(100)
-  const jianpuPartGapPercent = ref(100)
-  const jianpuVoiceGapPercent = ref(100)
-  const jianpuLyricLineGapPercent = ref(100)
-  const jianpuLyricNoteGapPercent = ref(100)
+  const jianpuPartGapPercent = ref(75)
+  const jianpuVoiceGapPercent = ref(80)
+  const jianpuLyricLineGapPercent = ref(90)
+  const jianpuLyricNoteGapPercent = ref(90)
   const enableOmrOcr = ref(false)
   const outputDir = ref('')
   const jianpuAutoTranspose = ref(true)
@@ -219,26 +219,26 @@ export const useSettingsStore = defineStore('settings', () => {
     measureNumberMode: 'row_start',
     jianpuSyntaxHighlight: true,
     jianpuMeasureDurationCheck: true,
-    jianpuContentScalePercent: 80,
-    jianpuSystemGapPercent: 50,
+    jianpuContentScalePercent: 88,
+    jianpuSystemGapPercent: 40,
     jianpuShortNoteGapPercent: 20,
     jianpuBeatGapPercent: 100,
     jianpuBreakBeamsAtBeat: false,
     jianpuMeasuresPerSystem: 0 as MeasuresPerSystem,
-    jianpuMarginTopMm: 10,
-    jianpuMarginBottomMm: 7,
-    jianpuMarginLeftMm: 12,
-    jianpuMarginRightMm: 12,
-    jianpuHeaderGapMm: 5,
+    jianpuMarginTopMm: 8,
+    jianpuMarginBottomMm: 5,
+    jianpuMarginLeftMm: 10,
+    jianpuMarginRightMm: 10,
+    jianpuHeaderGapMm: 3,
     jianpuFooterProtectionMm: 2,
     jianpuNoteSizePercent: 100,
     jianpuLyricSizePercent: 100,
     jianpuTitleSizePercent: 100,
     jianpuAnnotationSizePercent: 100,
-    jianpuPartGapPercent: 100,
-    jianpuVoiceGapPercent: 100,
-    jianpuLyricLineGapPercent: 100,
-    jianpuLyricNoteGapPercent: 100,
+    jianpuPartGapPercent: 75,
+    jianpuVoiceGapPercent: 80,
+    jianpuLyricLineGapPercent: 90,
+    jianpuLyricNoteGapPercent: 90,
     enableOmrOcr: false,
     outputDir: '',
     jianpuAutoTranspose: true,
@@ -617,26 +617,26 @@ export const useSettingsStore = defineStore('settings', () => {
     showMeasureNumbers.value = measureNumberMode.value !== 'none'
     jianpuSyntaxHighlight.value = data.jianpu_syntax_highlight ?? true
     jianpuMeasureDurationCheck.value = data.jianpu_measure_duration_check ?? true
-    jianpuContentScalePercent.value = data.jianpu_content_scale_percent ?? 80
-    jianpuSystemGapPercent.value = data.jianpu_system_gap_percent ?? 50
+    jianpuContentScalePercent.value = data.jianpu_content_scale_percent ?? 88
+    jianpuSystemGapPercent.value = data.jianpu_system_gap_percent ?? 40
     jianpuShortNoteGapPercent.value = data.jianpu_short_note_gap_percent ?? 20
     jianpuBeatGapPercent.value = data.jianpu_beat_gap_percent ?? 100
     jianpuBreakBeamsAtBeat.value = data.jianpu_break_beams_at_beat ?? false
     jianpuMeasuresPerSystem.value = data.jianpu_measures_per_system ?? 0
-    jianpuMarginTopMm.value = data.jianpu_margin_top_mm ?? 10
-    jianpuMarginBottomMm.value = data.jianpu_margin_bottom_mm ?? 7
-    jianpuMarginLeftMm.value = data.jianpu_margin_left_mm ?? 12
-    jianpuMarginRightMm.value = data.jianpu_margin_right_mm ?? 12
-    jianpuHeaderGapMm.value = data.jianpu_header_gap_mm ?? 5
+    jianpuMarginTopMm.value = data.jianpu_margin_top_mm ?? 8
+    jianpuMarginBottomMm.value = data.jianpu_margin_bottom_mm ?? 5
+    jianpuMarginLeftMm.value = data.jianpu_margin_left_mm ?? 10
+    jianpuMarginRightMm.value = data.jianpu_margin_right_mm ?? 10
+    jianpuHeaderGapMm.value = data.jianpu_header_gap_mm ?? 3
     jianpuFooterProtectionMm.value = data.jianpu_footer_protection_mm ?? 2
     jianpuNoteSizePercent.value = data.jianpu_note_size_percent ?? 100
     jianpuLyricSizePercent.value = data.jianpu_lyric_size_percent ?? 100
     jianpuTitleSizePercent.value = data.jianpu_title_size_percent ?? 100
     jianpuAnnotationSizePercent.value = data.jianpu_annotation_size_percent ?? 100
-    jianpuPartGapPercent.value = data.jianpu_part_gap_percent ?? 100
-    jianpuVoiceGapPercent.value = data.jianpu_voice_gap_percent ?? 100
-    jianpuLyricLineGapPercent.value = data.jianpu_lyric_line_gap_percent ?? 100
-    jianpuLyricNoteGapPercent.value = data.jianpu_lyric_note_gap_percent ?? 100
+    jianpuPartGapPercent.value = data.jianpu_part_gap_percent ?? 75
+    jianpuVoiceGapPercent.value = data.jianpu_voice_gap_percent ?? 80
+    jianpuLyricLineGapPercent.value = data.jianpu_lyric_line_gap_percent ?? 90
+    jianpuLyricNoteGapPercent.value = data.jianpu_lyric_note_gap_percent ?? 90
     enableOmrOcr.value = data.enable_omr_ocr ?? false
     outputDir.value = data.output_dir ?? ''
     jianpuAutoTranspose.value = data.jianpu_auto_transpose ?? true

@@ -9,6 +9,12 @@ from ...models.common.types import (
     TargetKeyOrAuto,
 )
 from ...models.render.layout import (
+    DEFAULT_CONTENT_SCALE_PERCENT,
+    DEFAULT_PART_GAP_PERCENT,
+    DEFAULT_SYSTEM_GAP_PERCENT,
+    DEFAULT_VOICE_GAP_PERCENT,
+    DEFAULT_LYRIC_LINE_GAP_PERCENT,
+    DEFAULT_LYRIC_NOTE_GAP_PERCENT,
     DEFAULT_FOOTER_PROTECTION_MM,
     DEFAULT_HEADER_GAP_MM,
     DEFAULT_MARGIN_BOTTOM_MM,
@@ -351,10 +357,10 @@ class SettingsActions:
             ),
             jianpu_auto_transpose=self.service.get_bool("jianpu_auto_transpose", True),
             jianpu_content_scale_percent=self.service.get_int(
-                "jianpu_content_scale_percent", 80
+                "jianpu_content_scale_percent", DEFAULT_CONTENT_SCALE_PERCENT
             ),
             jianpu_system_gap_percent=self.service.get_int(
-                "jianpu_system_gap_percent", 50
+                "jianpu_system_gap_percent", DEFAULT_SYSTEM_GAP_PERCENT
             ),
             jianpu_short_note_gap_percent=self.service.get_int(
                 "jianpu_short_note_gap_percent", 20
@@ -399,16 +405,16 @@ class SettingsActions:
                 "jianpu_annotation_size_percent", 100
             ),
             jianpu_part_gap_percent=self.service.get_int(
-                "jianpu_part_gap_percent", 100
+                "jianpu_part_gap_percent", DEFAULT_PART_GAP_PERCENT
             ),
             jianpu_voice_gap_percent=self.service.get_int(
-                "jianpu_voice_gap_percent", 100
+                "jianpu_voice_gap_percent", DEFAULT_VOICE_GAP_PERCENT
             ),
             jianpu_lyric_line_gap_percent=self.service.get_int(
-                "jianpu_lyric_line_gap_percent", 100
+                "jianpu_lyric_line_gap_percent", DEFAULT_LYRIC_LINE_GAP_PERCENT
             ),
             jianpu_lyric_note_gap_percent=self.service.get_int(
-                "jianpu_lyric_note_gap_percent", 100
+                "jianpu_lyric_note_gap_percent", DEFAULT_LYRIC_NOTE_GAP_PERCENT
             ),
             enable_omr_ocr=self.service.get_bool("enable_omr_ocr", False),
             ocr_provider=ocr_profile.id,

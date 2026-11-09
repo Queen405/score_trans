@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from score_trans.exec.render.actions import RenderMusicXmlJianpuAction
@@ -59,7 +60,8 @@ def test_execute_page_renders_every_part(tmp_path: Path) -> None:
 
     svg = output.read_text(encoding="utf-8")
     assert svg.count('class="note"') == 2
-    assert svg.count('class="measure"') == 1
+    assert svg.count('class="measure"') == 0
+    assert svg.count('class="measure terminal-barline"') == 4
 
 
 def test_execute_renders_every_part(tmp_path: Path) -> None:
@@ -69,7 +71,8 @@ def test_execute_renders_every_part(tmp_path: Path) -> None:
 
     svg = output.read_text(encoding="utf-8")
     assert svg.count('class="note"') == 2
-    assert svg.count('class="measure"') == 1
+    assert svg.count('class="measure"') == 0
+    assert svg.count('class="measure terminal-barline"') == 4
 
 
 def test_execute_a4_pages_renders_every_part(tmp_path: Path) -> None:
@@ -275,7 +278,7 @@ def test_part_and_voice_gaps_change_their_own_vertical_distance() -> None:
     def part_distance(notes: list[_PlaybackNote]) -> float:
         return max(note.y for note in notes) - min(note.y for note in notes)
 
-    assert part_distance(wide) - part_distance(normal) == pytest.approx(17)
+    assert part_distance(wide) - part_distance(normal) == pytest.approx(27)
 
     polyphonic = parse_jianpu_score("1=C\n4/4\n1 2 3 4 & 1 3 5 7 |")
     normal_notes = PublicationRenderer(
@@ -296,3 +299,56 @@ def test_part_and_voice_gaps_change_their_own_vertical_distance() -> None:
     assert voice_distance(wide_notes) - voice_distance(normal_notes) == pytest.approx(
         40
     )
+
+
+def test_contiguous_same_instrument_staves_use_one_brace_and_label() -> None:
+    parts = [
+        _part("1=C 4/4\n1 2 3 4 |", 0, 3, "Flute"),
+        _part("1=C 4/4\n1 2 3 4 |", 1, 3, "Piano(staff 1)"),
+        _part("1=C 4/4\n1 2 3 4 |", 2, 3, "Piano(staff 2)"),
+    ]
+    root = ET.fromstring(PublicationRenderer().render_scores(parts, title="t")[0].svg)
+    braces = [
+        node
+        for node in root.iter()
+        if node.attrib.get("class") == "system-bracket group-brace"
+    ]
+    names = [
+        node.attrib.get("aria-label")
+        for node in root.iter()
+        if node.attrib.get("class") == "part-name"
+    ]
+    measures = [
+        node
+        for node in root.iter()
+        if node.tag.endswith("line")
+        and "measure" in node.attrib.get("class", "").split()
+    ]
+
+    assert len(braces) == 1
+    assert names == ["Flute", "Piano"]
+    # Each of three staff lines gets its own aligned barline at each boundary.
+    assert len(measures) == 6
+    assert len({(line.attrib["x1"], line.attrib["y1"]) for line in measures}) == 6
+    note_rows = {}
+    for note in root.iter():
+        if "playback-note" not in note.attrib.get("class", "").split():
+            continue
+        part = int(note.attrib["data-part-index"])
+        note_rows.setdefault(part, float(note.attrib["data-bbox"].split()[1]))
+    assert note_rows[1] - note_rows[0] > note_rows[2] - note_rows[1]
+
+
+def test_non_contiguous_equal_instrument_names_are_not_merged() -> None:
+    parts = [
+        _part("1=C 4/4\n1 |", 0, 3, "Piano"),
+        _part("1=C 4/4\n2 |", 1, 3, "Flute"),
+        _part("1=C 4/4\n3 |", 2, 3, "Piano"),
+    ]
+    root = ET.fromstring(PublicationRenderer().render_scores(parts, title="t")[0].svg)
+    braces = [
+        node
+        for node in root.iter()
+        if node.attrib.get("class") == "system-bracket group-brace"
+    ]
+    assert not braces

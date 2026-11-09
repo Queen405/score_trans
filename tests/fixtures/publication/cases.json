@@ -4,7 +4,7 @@
     "path": "melody.jianpu",
     "measures_per_system": 4,
     "sha256": [
-      "6e94f47463eb1b6a62e2143f03b52c15ffbc9809e3b6397d1f3fc0cb682ebc64"
+      "e609ea3917c2454360432ad8dc47432d1cc1f3becb7aa7d8a76818761b931203"
     ]
   },
   {
@@ -12,7 +12,7 @@
     "path": "lyrics-zh.jianpu",
     "measures_per_system": 4,
     "sha256": [
-      "0090c7e4c87f99ce99421a2f54391fa18dd26cb3a12a4b562c40e6def1fc8cdc"
+      "edf4c88d303fc1a797afa17bf119c47fa48a54d9da526350e914eac38ed09ea7"
     ]
   },
   {
@@ -20,7 +20,7 @@
     "path": "lyrics-mixed.jianpu",
     "measures_per_system": 4,
     "sha256": [
-      "ca9b5bca2f006e738026cb4f485b5e42d4f60f6dd54c0e51c3d9932ea27d31eb"
+      "946ac17d64258b6789363da549c232bb106c179637a84ebf26b40ae9e5477741"
     ]
   },
   {
@@ -28,7 +28,7 @@
     "path": "dense-rhythm.jianpu",
     "measures_per_system": 4,
     "sha256": [
-      "5ba507f39ec455ecce0c8dc7d1e706e7fe27d28a2096f4457a204e28db9d73eb"
+      "66d0c02249de964174307021e4df724992bf0612c0b3e26431a6e1cb6192f555"
     ]
   },
   {
@@ -36,7 +36,7 @@
     "path": "multi-part.jianpu",
     "measures_per_system": 4,
     "sha256": [
-      "942cca185b88466eb1df96ba3b134e962efeed447dcd7327195b0c373c394f7a"
+      "807d252eeb5c695ad872a49f7fa7f3c729608761042e5aabc69392200629d97c"
     ]
   },
   {
@@ -45,9 +45,9 @@
     "measures_per_system": 4,
     "min_pages": 2,
     "sha256": [
-      "6bf87db76f6108ce4f8e68aa04281936b1a216b8c1d09e48b7b8f7d281479194",
-      "d776b592a93180fe26391af17509fd294bbd60d94748f6b84e44d27d4754cc89",
-      "1131e38985f4e03f480095944aba51462d5973db317d34936627109f2d4b1110"
+      "f7620ab7597ab30165911356547ea872fc3bc19c2233dbcacd8c87f2ed4d61d6",
+      "cbd7331eeb60b6b864d77f9e66d5ea45af2f611abe5d9b3a44fed92f35e1dac7",
+      "e6ee6b4480a1f096a3f885023c82781dfd0dcdd72ab856f79c95bf345d14f6eb"
     ]
   }
 ]

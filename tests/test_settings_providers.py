@@ -402,24 +402,24 @@ def test_settings_defaults_seeds_baseline_values() -> None:
     assert defaults["jianpu_syntax_highlight"] == "1"
     assert defaults["jianpu_measure_duration_check"] == "1"
     assert defaults["jianpu_auto_transpose"] == "1"
-    assert defaults["jianpu_content_scale_percent"] == "80"
-    assert defaults["jianpu_system_gap_percent"] == "50"
+    assert defaults["jianpu_content_scale_percent"] == "88"
+    assert defaults["jianpu_system_gap_percent"] == "40"
     assert defaults["jianpu_short_note_gap_percent"] == "20"
     assert defaults["jianpu_beat_gap_percent"] == "100"
-    assert defaults["jianpu_margin_top_mm"] == "10"
-    assert defaults["jianpu_margin_bottom_mm"] == "7"
-    assert defaults["jianpu_margin_left_mm"] == "12"
-    assert defaults["jianpu_margin_right_mm"] == "12"
-    assert defaults["jianpu_header_gap_mm"] == "5"
+    assert defaults["jianpu_margin_top_mm"] == "8"
+    assert defaults["jianpu_margin_bottom_mm"] == "5"
+    assert defaults["jianpu_margin_left_mm"] == "10"
+    assert defaults["jianpu_margin_right_mm"] == "10"
+    assert defaults["jianpu_header_gap_mm"] == "3"
     assert defaults["jianpu_footer_protection_mm"] == "2"
     assert defaults["jianpu_note_size_percent"] == "100"
     assert defaults["jianpu_lyric_size_percent"] == "100"
     assert defaults["jianpu_title_size_percent"] == "100"
     assert defaults["jianpu_annotation_size_percent"] == "100"
-    assert defaults["jianpu_part_gap_percent"] == "100"
-    assert defaults["jianpu_voice_gap_percent"] == "100"
-    assert defaults["jianpu_lyric_line_gap_percent"] == "100"
-    assert defaults["jianpu_lyric_note_gap_percent"] == "100"
+    assert defaults["jianpu_part_gap_percent"] == "75"
+    assert defaults["jianpu_voice_gap_percent"] == "80"
+    assert defaults["jianpu_lyric_line_gap_percent"] == "90"
+    assert defaults["jianpu_lyric_note_gap_percent"] == "90"
     assert defaults["enable_omr_ocr"] == "0"
     assert defaults["audiveris_max_heap"] == "3g"
     assert defaults["audiveris_max_pixel_count"] == "20000000"
@@ -467,6 +467,23 @@ def test_old_default_audiveris_pixel_budget_migrates_only_once(tmp_path) -> None
         defaults={"audiveris_max_pixel_count": "20000000"},
     )
     assert reopened.get("audiveris_max_pixel_count") == "4500000"
+
+
+def test_saved_jianpu_layout_is_reset_to_compact_defaults_once(tmp_path) -> None:
+    db_path = tmp_path / "settings.db"
+    original = SettingsDao(db_path, defaults=settings_defaults())
+    original.set("jianpu_content_scale_percent", "80")
+    original.set("jianpu_part_gap_percent", "160")
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("PRAGMA user_version = 1")
+
+    migrated = SettingsDao(db_path, defaults=settings_defaults())
+    assert migrated.get("jianpu_content_scale_percent") == "88"
+    assert migrated.get("jianpu_part_gap_percent") == "75"
+
+    migrated.set("jianpu_part_gap_percent", "120")
+    reopened = SettingsDao(db_path, defaults=settings_defaults())
+    assert reopened.get("jianpu_part_gap_percent") == "120"
 
 
 def test_settings_defaults_seeds_empty_api_keys() -> None:
@@ -532,8 +549,8 @@ def test_baseline_seeds_new_database(tmp_path) -> None:
     assert all_settings["assistant_api_key"] == ""
     assert all_settings["audiveris_path"] == ""
     assert all_settings["java_home"] == ""
-    assert all_settings["jianpu_content_scale_percent"] == "80"
-    assert all_settings["jianpu_system_gap_percent"] == "50"
+    assert all_settings["jianpu_content_scale_percent"] == "88"
+    assert all_settings["jianpu_system_gap_percent"] == "40"
     assert all_settings["jianpu_short_note_gap_percent"] == "20"
 
 

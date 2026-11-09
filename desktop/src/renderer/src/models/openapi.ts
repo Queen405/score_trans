@@ -1205,7 +1205,7 @@ export type components = {
             jianpu_break_beams_at_beat?: boolean;
             /**
              * Jianpu Content Scale Percent
-             * @default 80
+             * @default 88
              */
             jianpu_content_scale_percent?: number;
             /**
@@ -1215,17 +1215,17 @@ export type components = {
             jianpu_footer_protection_mm?: number;
             /**
              * Jianpu Header Gap Mm
-             * @default 5
+             * @default 3
              */
             jianpu_header_gap_mm?: number;
             /**
              * Jianpu Lyric Line Gap Percent
-             * @default 100
+             * @default 90
              */
             jianpu_lyric_line_gap_percent?: number;
             /**
              * Jianpu Lyric Note Gap Percent
-             * @default 100
+             * @default 90
              */
             jianpu_lyric_note_gap_percent?: number;
             /**
@@ -1235,22 +1235,22 @@ export type components = {
             jianpu_lyric_size_percent?: number;
             /**
              * Jianpu Margin Bottom Mm
-             * @default 7
+             * @default 5
              */
             jianpu_margin_bottom_mm?: number;
             /**
              * Jianpu Margin Left Mm
-             * @default 12
+             * @default 10
              */
             jianpu_margin_left_mm?: number;
             /**
              * Jianpu Margin Right Mm
-             * @default 12
+             * @default 10
              */
             jianpu_margin_right_mm?: number;
             /**
              * Jianpu Margin Top Mm
-             * @default 10
+             * @default 8
              */
             jianpu_margin_top_mm?: number;
             /**
@@ -1266,7 +1266,7 @@ export type components = {
             jianpu_note_size_percent?: number;
             /**
              * Jianpu Part Gap Percent
-             * @default 100
+             * @default 75
              */
             jianpu_part_gap_percent?: number;
             /**
@@ -1276,7 +1276,7 @@ export type components = {
             jianpu_short_note_gap_percent?: number;
             /**
              * Jianpu System Gap Percent
-             * @default 50
+             * @default 40
              */
             jianpu_system_gap_percent?: number;
             /**
@@ -1286,7 +1286,7 @@ export type components = {
             jianpu_title_size_percent?: number;
             /**
              * Jianpu Voice Gap Percent
-             * @default 100
+             * @default 80
              */
             jianpu_voice_gap_percent?: number;
             /**
@@ -1517,7 +1517,7 @@ export type components = {
             jianpu_break_beams_at_beat?: boolean;
             /**
              * Jianpu Content Scale Percent
-             * @default 80
+             * @default 88
              */
             jianpu_content_scale_percent?: number;
             /**
@@ -1527,7 +1527,7 @@ export type components = {
             jianpu_footer_protection_mm?: number;
             /**
              * Jianpu Header Gap Mm
-             * @default 5
+             * @default 3
              */
             jianpu_header_gap_mm?: number;
             /**
@@ -1547,22 +1547,22 @@ export type components = {
             jianpu_lyric_size_percent?: number;
             /**
              * Jianpu Margin Bottom Mm
-             * @default 7
+             * @default 5
              */
             jianpu_margin_bottom_mm?: number;
             /**
              * Jianpu Margin Left Mm
-             * @default 12
+             * @default 10
              */
             jianpu_margin_left_mm?: number;
             /**
              * Jianpu Margin Right Mm
-             * @default 12
+             * @default 10
              */
             jianpu_margin_right_mm?: number;
             /**
              * Jianpu Margin Top Mm
-             * @default 10
+             * @default 8
              */
             jianpu_margin_top_mm?: number;
             /**
@@ -1588,7 +1588,7 @@ export type components = {
             jianpu_short_note_gap_percent?: number;
             /**
              * Jianpu System Gap Percent
-             * @default 50
+             * @default 40
              */
             jianpu_system_gap_percent?: number;
             /**
@@ -1697,7 +1697,7 @@ export type components = {
             jianpu_break_beams_at_beat?: boolean;
             /**
              * Jianpu Content Scale Percent
-             * @default 80
+             * @default 88
              */
             jianpu_content_scale_percent?: number;
             /**
@@ -1707,17 +1707,17 @@ export type components = {
             jianpu_footer_protection_mm?: number;
             /**
              * Jianpu Header Gap Mm
-             * @default 5
+             * @default 3
              */
             jianpu_header_gap_mm?: number;
             /**
              * Jianpu Lyric Line Gap Percent
-             * @default 100
+             * @default 90
              */
             jianpu_lyric_line_gap_percent?: number;
             /**
              * Jianpu Lyric Note Gap Percent
-             * @default 100
+             * @default 90
              */
             jianpu_lyric_note_gap_percent?: number;
             /**
@@ -1727,22 +1727,22 @@ export type components = {
             jianpu_lyric_size_percent?: number;
             /**
              * Jianpu Margin Bottom Mm
-             * @default 7
+             * @default 5
              */
             jianpu_margin_bottom_mm?: number;
             /**
              * Jianpu Margin Left Mm
-             * @default 12
+             * @default 10
              */
             jianpu_margin_left_mm?: number;
             /**
              * Jianpu Margin Right Mm
-             * @default 12
+             * @default 10
              */
             jianpu_margin_right_mm?: number;
             /**
              * Jianpu Margin Top Mm
-             * @default 10
+             * @default 8
              */
             jianpu_margin_top_mm?: number;
             /**
@@ -1758,7 +1758,7 @@ export type components = {
             jianpu_note_size_percent?: number;
             /**
              * Jianpu Part Gap Percent
-             * @default 100
+             * @default 75
              */
             jianpu_part_gap_percent?: number;
             /**
@@ -1768,7 +1768,7 @@ export type components = {
             jianpu_short_note_gap_percent?: number;
             /**
              * Jianpu System Gap Percent
-             * @default 50
+             * @default 40
              */
             jianpu_system_gap_percent?: number;
             /**
@@ -1778,7 +1778,7 @@ export type components = {
             jianpu_title_size_percent?: number;
             /**
              * Jianpu Voice Gap Percent
-             * @default 100
+             * @default 80
              */
             jianpu_voice_gap_percent?: number;
             /**
@@ -2032,7 +2032,7 @@ export type components = {
             jianpu_break_beams_at_beat?: boolean;
             /**
              * Jianpu Content Scale Percent
-             * @default 80
+             * @default 88
              */
             jianpu_content_scale_percent?: number;
             /**
@@ -2042,17 +2042,17 @@ export type components = {
             jianpu_footer_protection_mm?: number;
             /**
              * Jianpu Header Gap Mm
-             * @default 5
+             * @default 3
              */
             jianpu_header_gap_mm?: number;
             /**
              * Jianpu Lyric Line Gap Percent
-             * @default 100
+             * @default 90
              */
             jianpu_lyric_line_gap_percent?: number;
             /**
              * Jianpu Lyric Note Gap Percent
-             * @default 100
+             * @default 90
              */
             jianpu_lyric_note_gap_percent?: number;
             /**
@@ -2062,22 +2062,22 @@ export type components = {
             jianpu_lyric_size_percent?: number;
             /**
              * Jianpu Margin Bottom Mm
-             * @default 7
+             * @default 5
              */
             jianpu_margin_bottom_mm?: number;
             /**
              * Jianpu Margin Left Mm
-             * @default 12
+             * @default 10
              */
             jianpu_margin_left_mm?: number;
             /**
              * Jianpu Margin Right Mm
-             * @default 12
+             * @default 10
              */
             jianpu_margin_right_mm?: number;
             /**
              * Jianpu Margin Top Mm
-             * @default 10
+             * @default 8
              */
             jianpu_margin_top_mm?: number;
             /**
@@ -2093,7 +2093,7 @@ export type components = {
             jianpu_note_size_percent?: number;
             /**
              * Jianpu Part Gap Percent
-             * @default 100
+             * @default 75
              */
             jianpu_part_gap_percent?: number;
             /**
@@ -2103,7 +2103,7 @@ export type components = {
             jianpu_short_note_gap_percent?: number;
             /**
              * Jianpu System Gap Percent
-             * @default 50
+             * @default 40
              */
             jianpu_system_gap_percent?: number;
             /**
@@ -2113,7 +2113,7 @@ export type components = {
             jianpu_title_size_percent?: number;
             /**
              * Jianpu Voice Gap Percent
-             * @default 100
+             * @default 80
              */
             jianpu_voice_gap_percent?: number;
             /**
@@ -2707,7 +2707,7 @@ export type components = {
             jianpu_break_beams_at_beat?: boolean;
             /**
              * Jianpu Content Scale Percent
-             * @default 80
+             * @default 88
              */
             jianpu_content_scale_percent?: number;
             /**
@@ -2717,17 +2717,17 @@ export type components = {
             jianpu_footer_protection_mm?: number;
             /**
              * Jianpu Header Gap Mm
-             * @default 5
+             * @default 3
              */
             jianpu_header_gap_mm?: number;
             /**
              * Jianpu Lyric Line Gap Percent
-             * @default 100
+             * @default 90
              */
             jianpu_lyric_line_gap_percent?: number;
             /**
              * Jianpu Lyric Note Gap Percent
-             * @default 100
+             * @default 90
              */
             jianpu_lyric_note_gap_percent?: number;
             /**
@@ -2737,22 +2737,22 @@ export type components = {
             jianpu_lyric_size_percent?: number;
             /**
              * Jianpu Margin Bottom Mm
-             * @default 7
+             * @default 5
              */
             jianpu_margin_bottom_mm?: number;
             /**
              * Jianpu Margin Left Mm
-             * @default 12
+             * @default 10
              */
             jianpu_margin_left_mm?: number;
             /**
              * Jianpu Margin Right Mm
-             * @default 12
+             * @default 10
              */
             jianpu_margin_right_mm?: number;
             /**
              * Jianpu Margin Top Mm
-             * @default 10
+             * @default 8
              */
             jianpu_margin_top_mm?: number;
             /**
@@ -2768,7 +2768,7 @@ export type components = {
             jianpu_note_size_percent?: number;
             /**
              * Jianpu Part Gap Percent
-             * @default 100
+             * @default 75
              */
             jianpu_part_gap_percent?: number;
             /**
@@ -2778,7 +2778,7 @@ export type components = {
             jianpu_short_note_gap_percent?: number;
             /**
              * Jianpu System Gap Percent
-             * @default 50
+             * @default 40
              */
             jianpu_system_gap_percent?: number;
             /**
@@ -2788,7 +2788,7 @@ export type components = {
             jianpu_title_size_percent?: number;
             /**
              * Jianpu Voice Gap Percent
-             * @default 100
+             * @default 80
              */
             jianpu_voice_gap_percent?: number;
             /**
@@ -3102,7 +3102,7 @@ export type components = {
             jianpu_break_beams_at_beat?: boolean;
             /**
              * Jianpu Content Scale Percent
-             * @default 80
+             * @default 88
              */
             jianpu_content_scale_percent?: number;
             /**
@@ -3112,17 +3112,17 @@ export type components = {
             jianpu_footer_protection_mm?: number;
             /**
              * Jianpu Header Gap Mm
-             * @default 5
+             * @default 3
              */
             jianpu_header_gap_mm?: number;
             /**
              * Jianpu Lyric Line Gap Percent
-             * @default 100
+             * @default 90
              */
             jianpu_lyric_line_gap_percent?: number;
             /**
              * Jianpu Lyric Note Gap Percent
-             * @default 100
+             * @default 90
              */
             jianpu_lyric_note_gap_percent?: number;
             /**
@@ -3132,22 +3132,22 @@ export type components = {
             jianpu_lyric_size_percent?: number;
             /**
              * Jianpu Margin Bottom Mm
-             * @default 7
+             * @default 5
              */
             jianpu_margin_bottom_mm?: number;
             /**
              * Jianpu Margin Left Mm
-             * @default 12
+             * @default 10
              */
             jianpu_margin_left_mm?: number;
             /**
              * Jianpu Margin Right Mm
-             * @default 12
+             * @default 10
              */
             jianpu_margin_right_mm?: number;
             /**
              * Jianpu Margin Top Mm
-             * @default 10
+             * @default 8
              */
             jianpu_margin_top_mm?: number;
             /**
@@ -3163,7 +3163,7 @@ export type components = {
             jianpu_note_size_percent?: number;
             /**
              * Jianpu Part Gap Percent
-             * @default 100
+             * @default 75
              */
             jianpu_part_gap_percent?: number;
             /**
@@ -3173,7 +3173,7 @@ export type components = {
             jianpu_short_note_gap_percent?: number;
             /**
              * Jianpu System Gap Percent
-             * @default 50
+             * @default 40
              */
             jianpu_system_gap_percent?: number;
             /**
@@ -3183,7 +3183,7 @@ export type components = {
             jianpu_title_size_percent?: number;
             /**
              * Jianpu Voice Gap Percent
-             * @default 100
+             * @default 80
              */
             jianpu_voice_gap_percent?: number;
             /**
@@ -3245,7 +3245,7 @@ export type components = {
             jianpu_break_beams_at_beat?: boolean;
             /**
              * Jianpu Content Scale Percent
-             * @default 80
+             * @default 88
              */
             jianpu_content_scale_percent?: number;
             /** Jianpu File Id */
@@ -3257,17 +3257,17 @@ export type components = {
             jianpu_footer_protection_mm?: number;
             /**
              * Jianpu Header Gap Mm
-             * @default 5
+             * @default 3
              */
             jianpu_header_gap_mm?: number;
             /**
              * Jianpu Lyric Line Gap Percent
-             * @default 100
+             * @default 90
              */
             jianpu_lyric_line_gap_percent?: number;
             /**
              * Jianpu Lyric Note Gap Percent
-             * @default 100
+             * @default 90
              */
             jianpu_lyric_note_gap_percent?: number;
             /**
@@ -3277,22 +3277,22 @@ export type components = {
             jianpu_lyric_size_percent?: number;
             /**
              * Jianpu Margin Bottom Mm
-             * @default 7
+             * @default 5
              */
             jianpu_margin_bottom_mm?: number;
             /**
              * Jianpu Margin Left Mm
-             * @default 12
+             * @default 10
              */
             jianpu_margin_left_mm?: number;
             /**
              * Jianpu Margin Right Mm
-             * @default 12
+             * @default 10
              */
             jianpu_margin_right_mm?: number;
             /**
              * Jianpu Margin Top Mm
-             * @default 10
+             * @default 8
              */
             jianpu_margin_top_mm?: number;
             /**
@@ -3308,7 +3308,7 @@ export type components = {
             jianpu_note_size_percent?: number;
             /**
              * Jianpu Part Gap Percent
-             * @default 100
+             * @default 75
              */
             jianpu_part_gap_percent?: number;
             /**
@@ -3318,7 +3318,7 @@ export type components = {
             jianpu_short_note_gap_percent?: number;
             /**
              * Jianpu System Gap Percent
-             * @default 50
+             * @default 40
              */
             jianpu_system_gap_percent?: number;
             /** Jianpu Text */
@@ -3330,7 +3330,7 @@ export type components = {
             jianpu_title_size_percent?: number;
             /**
              * Jianpu Voice Gap Percent
-             * @default 100
+             * @default 80
              */
             jianpu_voice_gap_percent?: number;
             /**
@@ -3506,7 +3506,7 @@ export type components = {
             jianpu_break_beams_at_beat?: boolean;
             /**
              * Jianpu Content Scale Percent
-             * @default 80
+             * @default 88
              */
             jianpu_content_scale_percent?: number;
             /**
@@ -3516,17 +3516,17 @@ export type components = {
             jianpu_footer_protection_mm?: number;
             /**
              * Jianpu Header Gap Mm
-             * @default 5
+             * @default 3
              */
             jianpu_header_gap_mm?: number;
             /**
              * Jianpu Lyric Line Gap Percent
-             * @default 100
+             * @default 90
              */
             jianpu_lyric_line_gap_percent?: number;
             /**
              * Jianpu Lyric Note Gap Percent
-             * @default 100
+             * @default 90
              */
             jianpu_lyric_note_gap_percent?: number;
             /**
@@ -3536,22 +3536,22 @@ export type components = {
             jianpu_lyric_size_percent?: number;
             /**
              * Jianpu Margin Bottom Mm
-             * @default 7
+             * @default 5
              */
             jianpu_margin_bottom_mm?: number;
             /**
              * Jianpu Margin Left Mm
-             * @default 12
+             * @default 10
              */
             jianpu_margin_left_mm?: number;
             /**
              * Jianpu Margin Right Mm
-             * @default 12
+             * @default 10
              */
             jianpu_margin_right_mm?: number;
             /**
              * Jianpu Margin Top Mm
-             * @default 10
+             * @default 8
              */
             jianpu_margin_top_mm?: number;
             /**
@@ -3572,7 +3572,7 @@ export type components = {
             jianpu_note_size_percent?: number;
             /**
              * Jianpu Part Gap Percent
-             * @default 100
+             * @default 75
              */
             jianpu_part_gap_percent?: number;
             /**
@@ -3587,7 +3587,7 @@ export type components = {
             jianpu_syntax_highlight?: boolean;
             /**
              * Jianpu System Gap Percent
-             * @default 50
+             * @default 40
              */
             jianpu_system_gap_percent?: number;
             /**
@@ -3597,7 +3597,7 @@ export type components = {
             jianpu_title_size_percent?: number;
             /**
              * Jianpu Voice Gap Percent
-             * @default 100
+             * @default 80
              */
             jianpu_voice_gap_percent?: number;
             /**

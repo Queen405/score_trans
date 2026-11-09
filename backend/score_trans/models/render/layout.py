@@ -5,8 +5,8 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 
 PUBLICATION_ENGINE_VERSION = "publication-29"
-DEFAULT_CONTENT_SCALE_PERCENT = 80
-DEFAULT_SYSTEM_GAP_PERCENT = 50
+DEFAULT_CONTENT_SCALE_PERCENT = 88
+DEFAULT_SYSTEM_GAP_PERCENT = 40
 DEFAULT_SHORT_NOTE_GAP_PERCENT = 20
 DEFAULT_BEAT_GAP_PERCENT = 100
 MIN_CONTENT_SCALE_PERCENT = 65
@@ -20,20 +20,20 @@ MAX_BEAT_GAP_PERCENT = 200
 DEFAULT_BREAK_BEAMS_AT_BEAT = False
 DEFAULT_MEASURES_PER_SYSTEM = 0
 A4_UNITS_PER_MM = 1240.0 / 210.0
-DEFAULT_MARGIN_TOP_MM = 10.0
-DEFAULT_MARGIN_BOTTOM_MM = 7.0
-DEFAULT_MARGIN_LEFT_MM = 12.0
-DEFAULT_MARGIN_RIGHT_MM = 12.0
-DEFAULT_HEADER_GAP_MM = 5.0
+DEFAULT_MARGIN_TOP_MM = 8.0
+DEFAULT_MARGIN_BOTTOM_MM = 5.0
+DEFAULT_MARGIN_LEFT_MM = 10.0
+DEFAULT_MARGIN_RIGHT_MM = 10.0
+DEFAULT_HEADER_GAP_MM = 3.0
 DEFAULT_FOOTER_PROTECTION_MM = 2.0
 DEFAULT_NOTE_SIZE_PERCENT = 100
 DEFAULT_LYRIC_SIZE_PERCENT = 100
 DEFAULT_TITLE_SIZE_PERCENT = 100
 DEFAULT_ANNOTATION_SIZE_PERCENT = 100
-DEFAULT_PART_GAP_PERCENT = 100
-DEFAULT_VOICE_GAP_PERCENT = 100
-DEFAULT_LYRIC_LINE_GAP_PERCENT = 100
-DEFAULT_LYRIC_NOTE_GAP_PERCENT = 100
+DEFAULT_PART_GAP_PERCENT = 75
+DEFAULT_VOICE_GAP_PERCENT = 80
+DEFAULT_LYRIC_LINE_GAP_PERCENT = 90
+DEFAULT_LYRIC_NOTE_GAP_PERCENT = 90
 MIN_VERTICAL_GAP_PERCENT = 50
 MIN_PART_GAP_PERCENT = 0
 MAX_VERTICAL_GAP_PERCENT = 200
@@ -85,14 +85,30 @@ class A4LayoutRequest(BaseModel):
     jianpu_footer_protection_mm: float = Field(
         default=DEFAULT_FOOTER_PROTECTION_MM, ge=0, le=30
     )
-    jianpu_note_size_percent: int = Field(default=100, ge=70, le=140)
-    jianpu_lyric_size_percent: int = Field(default=100, ge=60, le=150)
-    jianpu_title_size_percent: int = Field(default=100, ge=60, le=160)
-    jianpu_annotation_size_percent: int = Field(default=100, ge=60, le=150)
-    jianpu_part_gap_percent: int = Field(default=100, ge=MIN_PART_GAP_PERCENT, le=200)
-    jianpu_voice_gap_percent: int = Field(default=100, ge=50, le=200)
-    jianpu_lyric_line_gap_percent: int = Field(default=100, ge=50, le=200)
-    jianpu_lyric_note_gap_percent: int = Field(default=100, ge=50, le=200)
+    jianpu_note_size_percent: int = Field(
+        default=DEFAULT_NOTE_SIZE_PERCENT, ge=70, le=140
+    )
+    jianpu_lyric_size_percent: int = Field(
+        default=DEFAULT_LYRIC_SIZE_PERCENT, ge=60, le=150
+    )
+    jianpu_title_size_percent: int = Field(
+        default=DEFAULT_TITLE_SIZE_PERCENT, ge=60, le=160
+    )
+    jianpu_annotation_size_percent: int = Field(
+        default=DEFAULT_ANNOTATION_SIZE_PERCENT, ge=60, le=150
+    )
+    jianpu_part_gap_percent: int = Field(
+        default=DEFAULT_PART_GAP_PERCENT, ge=MIN_PART_GAP_PERCENT, le=200
+    )
+    jianpu_voice_gap_percent: int = Field(
+        default=DEFAULT_VOICE_GAP_PERCENT, ge=50, le=200
+    )
+    jianpu_lyric_line_gap_percent: int = Field(
+        default=DEFAULT_LYRIC_LINE_GAP_PERCENT, ge=50, le=200
+    )
+    jianpu_lyric_note_gap_percent: int = Field(
+        default=DEFAULT_LYRIC_NOTE_GAP_PERCENT, ge=50, le=200
+    )
 
     @field_validator("jianpu_measures_per_system", mode="before")
     @classmethod

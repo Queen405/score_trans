@@ -425,11 +425,17 @@ def test_whole_note_dashes_fill_beat_slots_evenly() -> None:
 
 def test_whole_note_measure_width_matches_quarter_note_measure() -> None:
     root = _root(render_jianpu_svg("1=C\n4/4\nw1 | 1 2 3 4 |"))
-    barlines = sorted(
+    normal_barlines = [
         float(node.attrib["x1"])
         for node in root.iter()
-        if node.tag.endswith("line") and "measure" in node.attrib.get("class", "")
-    )
+        if node.tag.endswith("line") and node.attrib.get("class") == "measure"
+    ]
+    terminal_barlines = [
+        float(node.attrib["x1"])
+        for node in root.iter()
+        if "terminal-barline" in node.attrib.get("class", "")
+    ]
+    barlines = sorted([36.0, *normal_barlines, *terminal_barlines])
     widths = [b - a for a, b in pairwise(barlines)]
 
     assert len(widths) >= 2
@@ -2242,8 +2248,8 @@ def test_multi_part_system_contains_all_parts_and_aligned_bars() -> None:
     assert len(pages) == 1
     assert "高声部" in pages[0].svg
     assert "低声部" in pages[0].svg
-    # Two cells have shared start/middle/final barlines across both parts.
-    assert pages[0].svg.count('class="measure"') == 3
+    # The middle barline is drawn separately on each single-line staff.
+    assert pages[0].svg.count('class="measure"') == 2
 
 
 def test_page_number_offset_is_applied_to_rendered_pages() -> None:
@@ -2393,7 +2399,7 @@ def test_a4_content_scale_preserves_page_and_scales_render_metadata(
     assert root.attrib["viewBox"] == "0 0 1240 1754"
     assert (
         root.attrib["data-layout-key"]
-        == "67:100:100:100:0:a:10:7:12:12:5:2:100:100:100:100:100:100:100:100"
+        == "67:100:100:100:0:a:8:5:10:10:3:2:100:100:100:100:75:80:90:90"
     )
     content = next(
         node for node in root if node.attrib.get("class") == "publication-content"
@@ -3074,11 +3080,11 @@ def test_batch_render_uses_jianpu_text_title_when_request_omits_one(
     root = ET.fromstring(svg_path.read_text(encoding="utf-8"))
     assert (
         root.attrib["data-layout-key"]
-        == "75:88:85:100:0:a:10:7:12:12:5:2:100:100:100:100:100:100:100:100"
+        == "75:88:85:100:0:a:8:5:10:10:3:2:100:100:100:100:75:80:90:90"
     )
     assert (
         response.pages[0].layout_key
-        == "75:88:85:100:0:a:10:7:12:12:5:2:100:100:100:100:100:100:100:100"
+        == "75:88:85:100:0:a:8:5:10:10:3:2:100:100:100:100:75:80:90:90"
     )
     text_content = " ".join(node.text or "" for node in root.iter() if node.text)
     assert "My Song" in text_content
@@ -3493,7 +3499,7 @@ def test_fixed_measures_per_system_aligns_barlines_across_short_rows() -> None:
     root = _root(page.svg)
     rows: dict[float, list[float]] = {}
     for node in root.iter():
-        if "measure" not in node.attrib.get("class", "").split():
+        if node.attrib.get("class") != "measure":
             continue
         y = float(node.attrib["y1"])
         rows.setdefault(y, []).append(float(node.attrib["x1"]))
@@ -3501,10 +3507,8 @@ def test_fixed_measures_per_system_aligns_barlines_across_short_rows() -> None:
     ordered = [rows[y] for y in sorted(rows)]
     assert len(ordered) == 3
     assert ordered[1] == pytest.approx(ordered[0])
-    assert ordered[2][:2] == pytest.approx(ordered[0][:2])
-    assert (
-        len(ordered[2]) == 4
-    )  # two starting boundaries plus the double terminal barline
+    assert ordered[2][:1] == pytest.approx(ordered[0][:1])
+    assert len(ordered[2]) == 1  # the short row keeps its aligned inner boundary
 
 
 def test_a4_layout_options_validate_measures_per_system() -> None:
@@ -4092,16 +4096,16 @@ def test_a4_page_geometry_controls_use_physical_millimetres() -> None:
         0
     ]
     root = _root(page.svg)
-    first_barline = next(
-        node for node in root.iter() if node.attrib.get("class") == "measure"
-    )
+    terminal_lines = [
+        node
+        for node in root.iter()
+        if "terminal-barline" in node.attrib.get("class", "")
+    ]
     title = next(
         node for node in root.iter() if node.attrib.get("class") == "score-title"
     )
 
-    assert float(first_barline.attrib["x1"]) == pytest.approx(
-        15 * units_per_mm, abs=0.001
-    )
+    assert max(float(node.attrib["x1"]) for node in terminal_lines) > 15 * units_per_mm
     assert _translate(title)[1] == pytest.approx(20 * units_per_mm + 26, abs=0.001)
 
     low_header = PublicationRenderService().build_scores_a4_svg_pages(
