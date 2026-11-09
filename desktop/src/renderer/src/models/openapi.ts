@@ -1332,7 +1332,7 @@ export type components = {
         BatchRenderStateResponse: {
             /**
              * Engine Version
-             * @default publication-35
+             * @default publication-36
              */
             engine_version?: string;
             /** Id */
@@ -1374,7 +1374,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-35
+             * @default publication-36
              */
             engine_version?: string;
             /** Id */
@@ -2369,7 +2369,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-35
+             * @default publication-36
              */
             engine_version?: string;
             /**
@@ -2504,7 +2504,7 @@ export type components = {
             document_revision?: string;
             /**
              * Engine Version
-             * @default publication-35
+             * @default publication-36
              */
             engine_version?: string;
             /** Error Message */
@@ -2980,7 +2980,7 @@ export type components = {
             document_revision?: string | null;
             /**
              * Engine Version
-             * @default publication-35
+             * @default publication-36
              */
             engine_version?: string;
             /**

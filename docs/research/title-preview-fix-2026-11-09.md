@@ -23,3 +23,13 @@
 - 同一首曲子的隔离副本经真实批量渲染入口输出 2 页，并经前端清理后查看截图，确认曲名、调拍号与首行没有遮挡。
 
 复查产物位于 `work/title-visibility-review/`：`comparison-final.png` 为原保存输出的前后对比；`actual-score-with-title.png` 为补入明确曲名后的实际谱面；`request-with-title.json` 为隔离验证请求。显示修复会应用到已缓存的 SVG，无需改变原谱布局或重新识别音符。
+
+## 后续：请求封装仍然覆盖标题（publication-36）
+
+用户补入 `title=海阔天空` 后仍显示“简谱”。核对保存文本确认标题位于第一声部正文，解析位置正确。上面的首次修复漏掉了 `usePublicationRender.ts`：`withDefaultTitle` 在所有请求离开前重新补上顶层 `title: '简谱'`，后端按显式请求优先规则再次覆盖了曲名。
+
+移除这层隐式覆盖，标题意图原样传入 API；本地化后备值继续由批量页面构建器处理。新增测试经过真实 Vue composable、请求门控、API 包装与 JSON 序列化，在网络边界检查未设置标题、null、空字符串和显式标题。这项测试在修复前准确失败，修复后通过。
+
+同步提升前后端引擎标记为 `publication-36` 并重新生成 API 类型，使历史记录中的旧输出在恢复时重建。新增历史旧版本缓存重建测试。
+
+再次读取用户已经保存的《海阔天空》原文，未添加或改写曲名，经真实前端构建器、请求封装、API 序列化，再提交实际 FastAPI `/render/batch-a4` 路由；两页标题均为“海阔天空”。通过实际预览清理函数在 Chromium 中截图并查看，4 个中文字形完整可见。产物位于 `work/title-transport-review/`，其中 `saved-score-correct-title.png` 为实际页面，`request-from-frontend.json` 为序列化后的请求。

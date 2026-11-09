@@ -465,6 +465,22 @@ test('quick 20-page stale restore shows existing SVGs before background rebuild'
   assert.equal(await restoring, true)
 })
 
+test('restoring a previous engine version rebuilds cached publication pages', async (t) => {
+  const ctx = setup(t, 'quick', { enabled: false })
+  const get = ctx.historyApi.get
+  ctx.historyApi.get = async () => {
+    const result = await get()
+    result.data.engine_version = 'publication-35'
+    return result
+  }
+
+  assert.equal(await ctx.restore(), true)
+  await settle()
+  await settle()
+  assert.deepEqual(ctx.store.currentBatchRenderPageFileIds, ['new-render-0'])
+  assert.deepEqual(ctx.errors, [])
+})
+
 test('background rebuild cannot overwrite a workspace replaced during rendering', async (t) => {
   const rendering = deferred()
   const ctx = setup(t, 'quick', { forceRender: true, renderGate: rendering.promise })
